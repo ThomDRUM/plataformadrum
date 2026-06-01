@@ -1,0 +1,71 @@
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+
+export async function proxy(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  const { pathname } = request.nextUrl;
+
+  // Login and auth routes — always pass through immediately (no network call)
+  if (pathname.startsWith("/login") || pathname.startsWith("/auth")) {
+    return supabaseResponse;
+  }
+
+  // For protected routes: use getSession() — reads cookie locally, no network round-trip
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // Role-based redirect only from root "/"
+  if (pathname === "/") {
+    return redirectByRole(request, session.user.id, supabase);
+  }
+
+  return supabaseResponse;
+}
+
+async function redirectByRole(
+  request: NextRequest,
+  userId: string,
+  supabase: ReturnType<typeof createServerClient>
+) {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single();
+
+  if (profile?.role === "admin") {
+    return NextResponse.redirect(new URL("/admin", request.url));
+  }
+  return NextResponse.redirect(new URL("/momento", request.url));
+}
+
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
+};
