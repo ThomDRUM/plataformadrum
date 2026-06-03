@@ -196,7 +196,10 @@ export async function createRepertoireItem(formData: FormData) {
   await supabase.from("repertoire_items").insert({
     competency_id: formData.get("competency_id") as string,
     title: formData.get("title") as string,
-    short_summary: (formData.get("description") as string) || null,
+    short_summary: (formData.get("short_summary") as string) || null,
+    full_summary: (formData.get("full_summary") as string) || null,
+    level: parseInt(formData.get("level") as string) || 1,
+    material_type: (formData.get("material_type") as string) || null,
     type: formData.get("type") as string,
     external_url: (formData.get("external_url") as string) || null,
     content_html: (formData.get("content_html") as string) || null,
@@ -210,7 +213,10 @@ export async function updateRepertoireItem(id: string, formData: FormData) {
   await supabase.from("repertoire_items").update({
     competency_id: formData.get("competency_id") as string,
     title: formData.get("title") as string,
-    short_summary: (formData.get("description") as string) || null,
+    short_summary: (formData.get("short_summary") as string) || null,
+    full_summary: (formData.get("full_summary") as string) || null,
+    level: parseInt(formData.get("level") as string) || 1,
+    material_type: (formData.get("material_type") as string) || null,
     type: formData.get("type") as string,
     external_url: (formData.get("external_url") as string) || null,
     content_html: (formData.get("content_html") as string) || null,
@@ -233,6 +239,7 @@ export async function createReflection(formData: FormData) {
     competency_id: formData.get("competency_id") as string,
     title: formData.get("title") as string,
     context: (formData.get("context") as string) || null,
+    is_required: formData.get("is_required") === "true",
   }).select().single();
 
   if (data) {
@@ -257,6 +264,7 @@ export async function updateReflection(id: string, formData: FormData) {
     competency_id: formData.get("competency_id") as string,
     title: formData.get("title") as string,
     context: (formData.get("context") as string) || null,
+    is_required: formData.get("is_required") === "true",
   }).eq("id", id);
 
   // Replace questions

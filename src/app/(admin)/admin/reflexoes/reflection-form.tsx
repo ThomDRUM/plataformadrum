@@ -59,6 +59,19 @@ export function ReflectionForm({ competencies }: { competencies: Competency[] })
         <Textarea name="context" rows={2} placeholder="Contexto introdutório para o mentorado..." />
       </div>
 
+      <div className="flex items-center gap-2">
+        <input type="hidden" name="is_required" value="false" />
+        <input
+          type="checkbox"
+          id="is_required"
+          name="is_required"
+          value="true"
+          defaultChecked
+          className="h-4 w-4 rounded border-border"
+        />
+        <Label htmlFor="is_required" className="font-normal cursor-pointer">Obrigatória</Label>
+      </div>
+
       <div className="space-y-2">
         <Label>Perguntas</Label>
         {questions.map((q, i) => (
