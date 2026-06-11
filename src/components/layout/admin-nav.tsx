@@ -13,11 +13,15 @@ import {
   Package,
   LogOut,
   Settings,
+  Home,
+  Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
   { href: "/admin", label: "Mentorados", icon: Users, exact: true },
+  { href: "/admin/familias", label: "Famílias", icon: Home },
+  { href: "/admin/projetos", label: "Projetos", icon: Briefcase },
   { href: "/admin/trilhas", label: "Trilhas", icon: Map },
   { href: "/admin/modulos", label: "Módulos", icon: Layers },
   { href: "/admin/competencias", label: "Competências", icon: Settings },

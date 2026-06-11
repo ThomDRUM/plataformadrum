@@ -18,8 +18,7 @@ export default async function StudentLayout({
     .eq("id", user.id)
     .single();
 
-  // If admin navigates here, send to /login — they'll be redirected to /admin by the proxy
-  if (!profile || profile.role === "admin") redirect("/login");
+  if (!profile || profile.role !== "student") redirect("/login");
 
   return (
     <div className="flex min-h-screen bg-background">

@@ -26,7 +26,9 @@ export async function login(formData: FormData) {
     .eq("id", data.user.id)
     .single();
 
-  return { redirectTo: profile?.role === "admin" ? "/admin" : "/momento" };
+  const role = profile?.role;
+  const redirectTo = role === "admin" ? "/admin" : role === "mentor" ? "/mentor/projeto" : "/momento";
+  return { redirectTo };
 }
 
 export async function logout() {

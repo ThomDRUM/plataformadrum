@@ -61,6 +61,9 @@ async function redirectByRole(
   if (profile?.role === "admin") {
     return NextResponse.redirect(new URL("/admin", request.url));
   }
+  if (profile?.role === "mentor") {
+    return NextResponse.redirect(new URL("/mentor/projeto", request.url));
+  }
   return NextResponse.redirect(new URL("/momento", request.url));
 }
 
