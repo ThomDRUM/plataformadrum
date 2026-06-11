@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronUp, Plus, Trash2, Check } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Trash2, Check, Pencil } from "lucide-react";
 import {
   updateScheduleItem,
   addScheduleItem,
@@ -94,6 +94,8 @@ function GanttBar({ startDate, endDate, pct }: { startDate: string | null; endDa
 export function CronogramaClient({ projectId, familyName, projectStart, projectEnd, items: initialItems }: Props) {
   const [items, setItems] = useState<ScheduleItem[]>(initialItems);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [eventDraft, setEventDraft] = useState<{ title: string; date: string | null } | null>(null);
 
   const { pct, segments, numMonths } = buildTimeline(projectStart, projectEnd);
   const TIMELINE_MIN_W = numMonths * MIN_MONTH_W;
@@ -138,21 +140,35 @@ export function CronogramaClient({ projectId, familyName, projectStart, projectE
   async function handleAddEvent(itemId: string) {
     const result = await saveEvent(itemId, null, "", null);
     if (result) {
+      const newEv = { id: result.id, title: "", date: null };
       setItems(prev => prev.map(it =>
-        it.id === itemId
-          ? { ...it, project_events: [...it.project_events, { id: result.id, title: "", date: null }] }
-          : it
+        it.id === itemId ? { ...it, project_events: [...it.project_events, newEv] } : it
       ));
+      setEditingEventId(result.id);
+      setEventDraft({ title: "", date: null });
     }
   }
 
-  async function handleUpdateEvent(itemId: string, evId: string, title: string, date: string | null) {
-    await saveEvent(itemId, evId, title, date);
+  function startEditEvent(ev: ScheduleEvent) {
+    setEditingEventId(ev.id);
+    setEventDraft({ title: ev.title, date: ev.date });
+  }
+
+  function cancelEditEvent() {
+    setEditingEventId(null);
+    setEventDraft(null);
+  }
+
+  async function saveEventEdit(itemId: string, evId: string) {
+    if (!eventDraft) return;
+    await saveEvent(itemId, evId, eventDraft.title, eventDraft.date);
     setItems(prev => prev.map(it =>
       it.id === itemId
-        ? { ...it, project_events: it.project_events.map(e => e.id === evId ? { ...e, title, date } : e) }
+        ? { ...it, project_events: it.project_events.map(e => e.id === evId ? { ...e, ...eventDraft } : e) }
         : it
     ));
+    setEditingEventId(null);
+    setEventDraft(null);
   }
 
   async function handleDeleteEvent(itemId: string, evId: string) {
@@ -162,6 +178,7 @@ export function CronogramaClient({ projectId, familyName, projectStart, projectE
         ? { ...it, project_events: it.project_events.filter(e => e.id !== evId) }
         : it
     ));
+    if (editingEventId === evId) { setEditingEventId(null); setEventDraft(null); }
   }
 
   const eventableItems = items.filter(it => it.has_events);
@@ -309,31 +326,60 @@ export function CronogramaClient({ projectId, familyName, projectStart, projectE
                 {item.project_events.length === 0 && (
                   <p className="text-xs text-muted-foreground/50 italic">Nenhum evento ainda.</p>
                 )}
-                {item.project_events.map((ev) => (
-                  <div key={ev.id} className="flex items-center gap-3">
-                    <input
-                      type="date"
-                      value={ev.date ?? ""}
-                      onBlur={(e) => handleUpdateEvent(item.id, ev.id, ev.title, e.target.value || null)}
-                      onChange={(e) => setItems(prev => prev.map(it =>
-                        it.id === item.id ? { ...it, project_events: it.project_events.map(e2 => e2.id === ev.id ? { ...e2, date: e.target.value || null } : e2) } : it
-                      ))}
-                      className="rounded-md border border-border bg-background px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                    <input
-                      value={ev.title}
-                      onBlur={(e) => handleUpdateEvent(item.id, ev.id, e.target.value, ev.date)}
-                      onChange={(e) => setItems(prev => prev.map(it =>
-                        it.id === item.id ? { ...it, project_events: it.project_events.map(e2 => e2.id === ev.id ? { ...e2, title: e.target.value } : e2) } : it
-                      ))}
-                      placeholder="Nome do evento..."
-                      className="flex-1 rounded-md border border-border bg-background px-2.5 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
-                    />
-                    <button onClick={() => handleDeleteEvent(item.id, ev.id)} className="p-1 text-muted-foreground/30 hover:text-muted-foreground transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
+                {item.project_events.map((ev) => {
+                  const isEditing = editingEventId === ev.id;
+
+                  if (isEditing && eventDraft) {
+                    return (
+                      <div key={ev.id} className="border border-border rounded-lg p-3 space-y-2.5 bg-background">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Data</p>
+                            <input
+                              type="date"
+                              value={eventDraft.date ?? ""}
+                              onChange={(e) => setEventDraft({ ...eventDraft, date: e.target.value || null })}
+                              autoFocus
+                              className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                            />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Nome</p>
+                            <input
+                              value={eventDraft.title}
+                              onChange={(e) => setEventDraft({ ...eventDraft, title: e.target.value })}
+                              placeholder="Nome do evento..."
+                              className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button onClick={() => saveEventEdit(item.id, ev.id)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 transition-colors">
+                            <Check className="w-3 h-3" /> Salvar
+                          </button>
+                          <button onClick={cancelEditEvent} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+                          <button onClick={() => handleDeleteEvent(item.id, ev.id)} className="ml-auto text-xs text-muted-foreground/40 hover:text-destructive transition-colors flex items-center gap-1">
+                            <Trash2 className="w-3 h-3" /> Remover
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={ev.id} className="group flex items-center gap-3 py-1.5">
+                      <span className="text-xs text-muted-foreground tabular-nums w-24 flex-shrink-0">
+                        {ev.date ? new Date(ev.date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "Sem data"}
+                      </span>
+                      <span className={`flex-1 text-sm ${ev.title ? "text-foreground" : "text-muted-foreground/40 italic"}`}>
+                        {ev.title || "Sem nome"}
+                      </span>
+                      <button onClick={() => startEditEvent(ev)} className="p-1 text-muted-foreground/30 hover:text-muted-foreground transition-colors opacity-0 group-hover:opacity-100" title="Editar">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
                 <button onClick={() => handleAddEvent(item.id)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1">
                   <Plus className="w-3 h-3" /> Adicionar evento
                 </button>

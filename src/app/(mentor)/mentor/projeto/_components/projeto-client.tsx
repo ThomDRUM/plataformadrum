@@ -126,10 +126,10 @@ export function ProjetoClient({ projectId, familyName, overview, outcomes: initi
   const [editingOutcomes, setEditingOutcomes] = useState(false);
   const [outcomeDrafts, setOutcomeDrafts] = useState(initialOutcomes);
 
-  const [roles, setRoles]     = useState(initialRoles);
-  const [savingRoles, setSavingRoles] = useState(false);
-  const [openRuleId, setOpenRuleId]   = useState<string | null>(null);
-  const [openRoleId, setOpenRoleId]   = useState<string | null>(null);
+  const [roles, setRoles]         = useState(initialRoles);
+  const [editingRoleIdx, setEditingRoleIdx] = useState<number | null>(null);
+  const [roleDraft, setRoleDraft] = useState<{ person_name: string; description: string } | null>(null);
+  const [openRuleId, setOpenRuleId] = useState<string | null>(null);
 
   // ── Overview field saves ───────────────────────────────────────────────────
 
@@ -167,18 +167,37 @@ export function ProjetoClient({ projectId, familyName, overview, outcomes: initi
   // ── Roles ──────────────────────────────────────────────────────────────────
 
   function addRole() {
-    setRoles([...roles, { id: "", person_name: "", description: "" }]);
+    const newRoles = [...roles, { id: "", person_name: "", description: "" }];
+    setRoles(newRoles);
+    setEditingRoleIdx(newRoles.length - 1);
+    setRoleDraft({ person_name: "", description: "" });
   }
-  function removeRole(id: string) {
-    setRoles(roles.filter(r => r.id !== id || r.id === ""));
+  function removeRole(idx: number) {
+    const updated = roles.filter((_, i) => i !== idx);
+    setRoles(updated);
+    setEditingRoleIdx(null);
+    setRoleDraft(null);
+    saveRoles(projectId, updated.map(r => ({ person_name: r.person_name, description: r.description })));
   }
-  function updateRole(idx: number, field: "person_name" | "description", v: string) {
-    setRoles(roles.map((r, i) => i === idx ? { ...r, [field]: v } : r));
+  function startEditRole(idx: number) {
+    setEditingRoleIdx(idx);
+    setRoleDraft({ person_name: roles[idx].person_name, description: roles[idx].description });
   }
-  async function handleSaveRoles() {
-    setSavingRoles(true);
-    await saveRoles(projectId, roles.map(r => ({ person_name: r.person_name, description: r.description })));
-    setSavingRoles(false);
+  function cancelEditRole() {
+    // Remove if it was a brand-new unsaved role
+    if (editingRoleIdx !== null && roles[editingRoleIdx]?.id === "") {
+      setRoles(roles.filter((_, i) => i !== editingRoleIdx));
+    }
+    setEditingRoleIdx(null);
+    setRoleDraft(null);
+  }
+  async function saveRole(idx: number) {
+    if (!roleDraft) return;
+    const updated = roles.map((r, i) => i === idx ? { ...r, ...roleDraft } : r);
+    setRoles(updated);
+    setEditingRoleIdx(null);
+    setRoleDraft(null);
+    await saveRoles(projectId, updated.map(r => ({ person_name: r.person_name, description: r.description })));
   }
 
   return (
@@ -272,12 +291,18 @@ export function ProjetoClient({ projectId, familyName, overview, outcomes: initi
       <section>
         <SectionTitle title="Ponto A" help="A fotografia do estado atual da família." italic />
         <CollapsibleInstructions>
-          <p className="font-medium text-foreground/80">Descreva a situação atual como se fosse a fotografia da realidade hoje. Tente responder às seguintes perguntas:</p>
-          <div className="space-y-2 mt-2">
-            <div><span className="font-medium text-foreground/80">Individual:</span> qual é o entendimento dos membros sobre seus papéis, relação com a família e impacto em sua vida?</div>
-            <div><span className="font-medium text-foreground/80">Relacional:</span> como acontecem as relações a partir do entendimento das dimensões envolvidas: a família, no negócio e na sociedade?</div>
-            <div><span className="font-medium text-foreground/80">Empreendedora:</span> existe clareza e alinhamento sobre o futuro e planejamento estratégico do empreendimento?</div>
-            <div><span className="font-medium text-foreground/80">Estrutural:</span> os entendimentos sobre como será a sucessão estão formalizados com instrumentos e políticas conhecidas por todos?</div>
+          <p className="font-medium text-foreground/80">Descreva a situação atual como se fosse a fotografia da realidade hoje. Considere os seguintes tópicos para construir esse cenário:</p>
+          <div className="space-y-3 mt-2">
+            <div>
+              <span className="font-medium text-foreground/80">Individual:</span> os membros da família possuem individualmente um bom entendimento sobre o seu contexto sendo parte de uma família empreendedora? Conseguem entender o seu papel no sistema empresarial-familiar no curto, médio e longo prazo? Cada um consegue ter clareza das definições sobre o futuro dos negócios e como isso impacta a sua trajetória pessoal e profissional?
+              <ul className="mt-1.5 space-y-1 list-disc list-inside ml-2">
+                <li><span className="font-medium text-foreground/80">Geração atual:</span> tem visão de futuro da família empreendedora (visão de portfólio), alinhamento sobre como vai ser a sucessão da propriedade, da gestão do negócio? A partir destas definições, entende a necessidade de desenvolver a próxima geração, de fazer a transição de poder para ela e qual papel vai desempenhar no futuro?</li>
+                <li><span className="font-medium text-foreground/80">Próxima geração:</span> a partir da orientação e visão da geração atual, entende se e como gostaria de se relacionar com a família empreendedora? A partir desta definição, está em uma trajetória de desenvolvimento para conseguir agregar valor ao contexto da família empreendedora em harmonia com a sua trajetória pessoal e profissional?</li>
+              </ul>
+            </div>
+            <div><span className="font-medium text-foreground/80">Relacional:</span> as relações em cada uma das esferas, na família, no negócio e na sociedade, estão funcionais? Existem conflitos que causam rupturas ou uma incapacidade de convivência? Todos se respeitam e entendem os seus direitos e deveres a depender do papel que ocupam no sistema e se comunicam e alinham de forma recorrente?</div>
+            <div><span className="font-medium text-foreground/80">Empreendedora:</span> existe uma clareza para os líderes do negócio sobre o futuro e planejamento estratégico do empreendimento, que fase ele está e do que precisa para prosperar? Isso é transmitido para a próxima geração que consegue entender quais são as suas oportunidades e necessidades de desenvolvimento?</div>
+            <div><span className="font-medium text-foreground/80">Estrutural:</span> os entendimentos sobre como será a sucessão, passagem da propriedade, gestão do negócio, direitos e deveres de sócios, familiares e executivos estão formalizados com instrumentos e políticas conhecidas por todos? Existem fóruns que dão recorrência e consistência para a tomada de decisão, alinhamento e compartilhamento de informações entre toda a família e empresa?</div>
           </div>
         </CollapsibleInstructions>
         <EditableText value={pointA} onChange={handlePointASave} rows={8} />
@@ -287,12 +312,18 @@ export function ProjetoClient({ projectId, familyName, overview, outcomes: initi
       <section>
         <SectionTitle title="Ponto B" help="A fotografia do estado desejado para a família ao final do projeto." italic />
         <CollapsibleInstructions>
-          <p className="font-medium text-foreground/80">Descreva o estado desejado ao final do processo. Considere as mesmas quatro dimensões:</p>
-          <div className="space-y-2 mt-2">
-            <div><span className="font-medium text-foreground/80">Individual:</span> como cada membro se vê em relação à família empreendedora?</div>
-            <div><span className="font-medium text-foreground/80">Relacional:</span> como são as relações entre os membros?</div>
-            <div><span className="font-medium text-foreground/80">Empreendedora:</span> a visão e estratégia do negócio estão claras e alinhadas entre as gerações?</div>
-            <div><span className="font-medium text-foreground/80">Estrutural:</span> todos os instrumentos, acordos e políticas estão implementados e conhecidos?</div>
+          <p className="font-medium text-foreground/80">Descreva o estado desejado ao final do processo. Considere as quatro dimensões:</p>
+          <div className="space-y-3 mt-2">
+            <div>
+              <span className="font-medium text-foreground/80">Individual:</span> os membros da família possuem individualmente um bom entendimento sobre o seu contexto sendo parte de uma família empreendedora? Conseguem entender o seu papel no sistema empresarial-familiar no curto, médio e longo prazo? Cada um consegue ter clareza das definições sobre o futuro dos negócios e como isso impacta a sua trajetória pessoal e profissional?
+              <ul className="mt-1.5 space-y-1 list-disc list-inside ml-2">
+                <li><span className="font-medium text-foreground/80">Geração atual:</span> tem visão de futuro da família empreendedora (visão de portfólio), alinhamento sobre como vai ser a sucessão da propriedade, da gestão do negócio? A partir destas definições, entende a necessidade de desenvolver a próxima geração, de fazer a transição de poder para ela e qual papel vai desempenhar no futuro?</li>
+                <li><span className="font-medium text-foreground/80">Próxima geração:</span> a partir da orientação e visão da geração atual, entende se e como gostaria de se relacionar com a família empreendedora? A partir desta definição, está em uma trajetória de desenvolvimento para conseguir agregar valor ao contexto da família empreendedora em harmonia com a sua trajetória pessoal e profissional?</li>
+              </ul>
+            </div>
+            <div><span className="font-medium text-foreground/80">Relacional:</span> as relações em cada uma das esferas, na família, no negócio e na sociedade, estão funcionais? Existem conflitos que causam rupturas ou uma incapacidade de convivência? Todos se respeitam e entendem os seus direitos e deveres a depender do papel que ocupam no sistema e se comunicam e alinham de forma recorrente?</div>
+            <div><span className="font-medium text-foreground/80">Empreendedora:</span> existe uma clareza para os líderes do negócio sobre o futuro e planejamento estratégico do empreendimento, que fase ele está e do que precisa para prosperar? Isso é transmitido para a próxima geração que consegue entender quais são as suas oportunidades e necessidades de desenvolvimento?</div>
+            <div><span className="font-medium text-foreground/80">Estrutural:</span> os entendimentos sobre como será a sucessão, passagem da propriedade, gestão do negócio, direitos e deveres de sócios, familiares e executivos estão formalizados com instrumentos e políticas conhecidas por todos? Existem fóruns que dão recorrência e consistência para a tomada de decisão, alinhamento e compartilhamento de informações entre toda a família e empresa?</div>
           </div>
         </CollapsibleInstructions>
         <EditableText value={pointB} onChange={handlePointBSave} rows={8} />
@@ -329,59 +360,64 @@ export function ProjetoClient({ projectId, familyName, overview, outcomes: initi
         <SectionTitle title="Papeis" help="Quem faz o quê neste projeto." />
         <div className="space-y-2">
           {roles.map((role, idx) => {
-            const isOpen = openRoleId === (role.id || String(idx));
             const key = role.id || String(idx);
-            return (
-              <div key={key} className="border border-border rounded-lg overflow-hidden">
-                <div className="flex items-center gap-2.5 px-4 py-3">
-                  <button onClick={() => setOpenRoleId(isOpen ? null : key)} className="flex-shrink-0">
-                    {isOpen ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
-                  </button>
-                  {isOpen ? (
+            const isEditing = editingRoleIdx === idx;
+
+            if (isEditing && roleDraft) {
+              return (
+                <div key={key} className="border border-border rounded-lg p-4 space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Nome</p>
                     <input
-                      value={role.person_name}
-                      onChange={(e) => updateRole(idx, "person_name", e.target.value)}
-                      className="flex-1 text-sm font-medium bg-transparent border-b border-border focus:outline-none py-0.5 placeholder:text-muted-foreground/40"
+                      value={roleDraft.person_name}
+                      onChange={(e) => setRoleDraft({ ...roleDraft, person_name: e.target.value })}
+                      autoFocus
                       placeholder="Nome da pessoa..."
+                      className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
                     />
-                  ) : (
-                    <div className="flex-1 flex items-baseline gap-2 min-w-0">
-                      <span className="text-sm font-medium text-foreground flex-shrink-0">{role.person_name || "Novo papel"}</span>
-                      {role.description && (
-                        <span className="text-xs text-muted-foreground/60 truncate">— {role.description.slice(0, 70)}…</span>
-                      )}
-                    </div>
-                  )}
-                  <button onClick={() => removeRole(role.id)} className="p-1 text-muted-foreground/30 hover:text-muted-foreground transition-colors flex-shrink-0">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                {isOpen && (
-                  <div className="px-4 pb-4 pt-1 border-t border-border">
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Papel</p>
                     <textarea
-                      value={role.description}
-                      onChange={(e) => updateRole(idx, "description", e.target.value)}
+                      value={roleDraft.description}
+                      onChange={(e) => setRoleDraft({ ...roleDraft, description: e.target.value })}
                       rows={3}
                       placeholder="Descrição do papel..."
                       className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
                     />
                   </div>
-                )}
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => saveRole(idx)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 transition-colors">
+                      <Check className="w-3 h-3" /> Salvar
+                    </button>
+                    <button onClick={cancelEditRole} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={key} className="group relative border border-border rounded-lg px-4 py-3">
+                <div className="pr-14">
+                  <p className="text-sm font-medium text-foreground">{role.person_name || "Novo papel"}</p>
+                  {role.description && (
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{role.description}</p>
+                  )}
+                </div>
+                <div className="absolute top-3 right-3 flex items-center gap-1">
+                  <button onClick={() => startEditRole(idx)} className="p-1 text-muted-foreground/30 hover:text-muted-foreground transition-colors" title="Editar">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => removeRole(idx)} className="p-1 text-muted-foreground/30 hover:text-muted-foreground transition-colors" title="Remover">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             );
           })}
-          <div className="flex items-center gap-4 mt-2">
-            <button onClick={addRole} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <Plus className="w-3.5 h-3.5" /> Novo papel
-            </button>
-            <button
-              onClick={handleSaveRoles}
-              disabled={savingRoles}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 transition-colors disabled:opacity-50"
-            >
-              <Check className="w-3 h-3" /> {savingRoles ? "Salvando…" : "Salvar papeis"}
-            </button>
-          </div>
+          <button onClick={addRole} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1">
+            <Plus className="w-3.5 h-3.5" /> Novo papel
+          </button>
         </div>
       </section>
 
