@@ -1,35 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronUp, Plus, Trash2, Check, Pencil } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Trash2, Check, Pencil, Users, Calendar } from "lucide-react";
+import { toast } from "sonner";
 import {
   updateScheduleItem,
   addScheduleItem,
   deleteScheduleItem,
-  saveEvent,
-  deleteEvent,
+  updateProjectDates,
 } from "@/lib/actions/mentor";
+import { colorForTipo, FASE_COLOR, FASE_LABEL, TIPO_TO_FASE } from "@/lib/mentor/alinhamentos";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type Status = "a_comecar" | "em_andamento" | "concluido";
 
-interface ScheduleEvent { id: string; title: string; date: string | null }
 interface ScheduleItem {
   id: string; title: string;
   start_date: string | null; end_date: string | null;
   status: Status; mentor_notes: string;
-  has_events: boolean;
-  project_events: ScheduleEvent[];
 }
+interface Meeting { id: string; name: string; meeting_date: string | null; tipo: string | null }
 
 interface Props {
   projectId: string;
   familyName: string;
+  startDate: string | null;
+  endDate: string | null;
   projectStart: string;
   projectEnd: string;
   items: ScheduleItem[];
+  meetings: Meeting[];
+}
+
+function formatDateBR(iso: string | null): string {
+  if (!iso) return "—";
+  const [year, month, day] = iso.split("-");
+  return `${day}/${month}/${year}`;
 }
 
 // ── Timeline helpers ───────────────────────────────────────────────────────────
@@ -89,13 +97,153 @@ function GanttBar({ startDate, endDate, pct }: { startDate: string | null; endDa
   );
 }
 
+// ── Meeting dot with tooltip ───────────────────────────────────────────────────
+
+function MeetingDot({
+  color, left, yOffset, label,
+}: { color: string; left: number; yOffset: number; label: string }) {
+  const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!pinned) return;
+    function handleOutside(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setPinned(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [pinned]);
+
+  const showTooltip = hovered || pinned;
+
+  return (
+    <div
+      ref={rootRef}
+      className="absolute"
+      style={{ left: `${left}%`, top: "50%", transform: `translate(-50%, calc(-50% + ${yOffset}px))`, zIndex: showTooltip ? 30 : 10 }}
+    >
+      <button
+        type="button"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onClick={(e) => { e.stopPropagation(); setPinned((v) => !v); }}
+        className="block w-3 h-3 rounded-full border-2 border-background flex-shrink-0 cursor-pointer"
+        style={{ backgroundColor: color }}
+        aria-label={label}
+      />
+      {showTooltip && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 rounded-md bg-foreground text-background text-[11px] whitespace-nowrap shadow-md z-40">
+          {label}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Project dates ────────────────────────────────────────────────────────────
+
+function ProjectDates({
+  projectId, startDate, endDate,
+}: {
+  projectId: string; startDate: string | null; endDate: string | null;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [start, setStart] = useState(startDate ?? "");
+  const [end, setEnd] = useState(endDate ?? "");
+  const [savedStart, setSavedStart] = useState(startDate);
+  const [savedEnd, setSavedEnd] = useState(endDate);
+  const [error, setError] = useState<string | null>(null);
+
+  function startEdit() {
+    setStart(savedStart ?? "");
+    setEnd(savedEnd ?? "");
+    setError(null);
+    setEditing(true);
+  }
+
+  function cancel() {
+    setError(null);
+    setEditing(false);
+  }
+
+  async function save() {
+    if (start && end && end <= start) {
+      setError("O término deve ser posterior ao início.");
+      return;
+    }
+    await updateProjectDates(projectId, start || null, end || null);
+    setSavedStart(start || null);
+    setSavedEnd(end || null);
+    setError(null);
+    setEditing(false);
+    toast.success("Datas atualizadas");
+  }
+
+  if (editing) {
+    return (
+      <div className="border border-border rounded-lg p-4 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Início
+            </p>
+            <input
+              type="date"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Término
+            </p>
+            <input
+              type="date"
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+        </div>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        <div className="flex items-center gap-3">
+          <button onClick={save} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 transition-colors">
+            <Check className="w-3 h-3" /> Salvar
+          </button>
+          <button onClick={cancel} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={startEdit}
+      className="group flex items-center gap-6 text-left hover:bg-muted/30 -mx-2 px-2 py-1.5 rounded-md transition-colors"
+    >
+      <Calendar className="w-3.5 h-3.5 text-muted-foreground/50 flex-shrink-0" />
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Início</span>
+        <span className="text-sm text-foreground tabular-nums">{formatDateBR(savedStart)}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Término</span>
+        <span className="text-sm text-foreground tabular-nums">{formatDateBR(savedEnd)}</span>
+      </div>
+      <Pencil className="w-3 h-3 text-muted-foreground/0 group-hover:text-muted-foreground/40 transition-colors" />
+    </button>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function CronogramaClient({ projectId, familyName, projectStart, projectEnd, items: initialItems }: Props) {
+export function CronogramaClient({ projectId, familyName, startDate, endDate, projectStart, projectEnd, items: initialItems, meetings }: Props) {
   const [items, setItems] = useState<ScheduleItem[]>(initialItems);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [editingEventId, setEditingEventId] = useState<string | null>(null);
-  const [eventDraft, setEventDraft] = useState<{ title: string; date: string | null } | null>(null);
 
   const { pct, segments, numMonths } = buildTimeline(projectStart, projectEnd);
   const TIMELINE_MIN_W = numMonths * MIN_MONTH_W;
@@ -123,7 +271,6 @@ export function CronogramaClient({ projectId, familyName, projectStart, projectE
         id: result.id, title: "Nova etapa",
         start_date: null, end_date: null,
         status: "a_comecar", mentor_notes: "",
-        has_events: false, project_events: [],
       }]);
       setOpenId(result.id);
     }
@@ -135,54 +282,6 @@ export function CronogramaClient({ projectId, familyName, projectStart, projectE
     if (openId === id) setOpenId(null);
   }
 
-  // ── Event mutations ────────────────────────────────────────────────────────
-
-  async function handleAddEvent(itemId: string) {
-    const result = await saveEvent(itemId, null, "", null);
-    if (result) {
-      const newEv = { id: result.id, title: "", date: null };
-      setItems(prev => prev.map(it =>
-        it.id === itemId ? { ...it, project_events: [...it.project_events, newEv] } : it
-      ));
-      setEditingEventId(result.id);
-      setEventDraft({ title: "", date: null });
-    }
-  }
-
-  function startEditEvent(ev: ScheduleEvent) {
-    setEditingEventId(ev.id);
-    setEventDraft({ title: ev.title, date: ev.date });
-  }
-
-  function cancelEditEvent() {
-    setEditingEventId(null);
-    setEventDraft(null);
-  }
-
-  async function saveEventEdit(itemId: string, evId: string) {
-    if (!eventDraft) return;
-    await saveEvent(itemId, evId, eventDraft.title, eventDraft.date);
-    setItems(prev => prev.map(it =>
-      it.id === itemId
-        ? { ...it, project_events: it.project_events.map(e => e.id === evId ? { ...e, ...eventDraft } : e) }
-        : it
-    ));
-    setEditingEventId(null);
-    setEventDraft(null);
-  }
-
-  async function handleDeleteEvent(itemId: string, evId: string) {
-    await deleteEvent(evId);
-    setItems(prev => prev.map(it =>
-      it.id === itemId
-        ? { ...it, project_events: it.project_events.filter(e => e.id !== evId) }
-        : it
-    ));
-    if (editingEventId === evId) { setEditingEventId(null); setEventDraft(null); }
-  }
-
-  const eventableItems = items.filter(it => it.has_events);
-
   return (
     <div className="-mx-10 -my-10 flex flex-col" style={{ minHeight: "100vh" }}>
 
@@ -190,9 +289,9 @@ export function CronogramaClient({ projectId, familyName, projectStart, projectE
       <div className="px-10 pt-10 pb-8">
         <p className="text-xs text-muted-foreground/60 uppercase tracking-widest font-medium mb-2">{familyName}</p>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Cronograma</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {numMonths} meses · {new Date(projectStart).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })} – {new Date(projectEnd).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
-        </p>
+        <div className="mt-4">
+          <ProjectDates projectId={projectId} startDate={startDate} endDate={endDate} />
+        </div>
       </div>
 
       {/* Gantt */}
@@ -308,84 +407,59 @@ export function CronogramaClient({ projectId, familyName, projectStart, projectE
           <button onClick={handleAddItem} className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
             <Plus className="w-3.5 h-3.5" /> Nova etapa
           </button>
-        </div>
-      </div>
 
-      {/* ── Eventos ── */}
-      <div className="px-10 pt-4 pb-12 space-y-8">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight text-foreground mb-1">Eventos</h2>
-          <p className="text-sm text-muted-foreground">Datas específicas de encontros e marcos do projeto.</p>
-        </div>
+          {/* Reuniões de Alinhamento — somente leitura, integradas ao Gantt */}
+          {meetings.length > 0 && (
+            <>
+              <div className="flex items-stretch mt-4 border border-border rounded-lg overflow-visible bg-violet-50/30">
+                <div className="flex-shrink-0 flex items-center gap-2 px-3 py-3 border-r border-border" style={{ width: TITLE_COL }}>
+                  <Users className="w-3 h-3 text-violet-600/70 flex-shrink-0" />
+                  <span className="text-xs text-foreground leading-tight">Reuniões de Alinhamento</span>
+                </div>
+                <div className="flex-1 relative h-20">
+                  {(() => {
+                    const LANE_Y: Record<0 | 1 | 2, number> = { 0: -16, 1: 0, 2: 16 };
 
-        <div className="space-y-8 max-w-2xl">
-          {eventableItems.map((item) => (
-            <div key={item.id}>
-              <p className="text-sm font-medium text-foreground mb-3">{item.title}</p>
-              <div className="space-y-2 pl-4 border-l-2 border-border">
-                {item.project_events.length === 0 && (
-                  <p className="text-xs text-muted-foreground/50 italic">Nenhum evento ainda.</p>
-                )}
-                {item.project_events.map((ev) => {
-                  const isEditing = editingEventId === ev.id;
+                    const positioned = meetings
+                      .filter(m => m.meeting_date)
+                      .map(m => ({ m, left: pct(new Date(m.meeting_date as string)), fase: TIPO_TO_FASE[m.tipo ?? ""] ?? 1 }))
+                      .sort((a, b) => a.left - b.left);
 
-                  if (isEditing && eventDraft) {
-                    return (
-                      <div key={ev.id} className="border border-border rounded-lg p-3 space-y-2.5 bg-background">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Data</p>
-                            <input
-                              type="date"
-                              value={eventDraft.date ?? ""}
-                              onChange={(e) => setEventDraft({ ...eventDraft, date: e.target.value || null })}
-                              autoFocus
-                              className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                            />
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Nome</p>
-                            <input
-                              value={eventDraft.title}
-                              onChange={(e) => setEventDraft({ ...eventDraft, title: e.target.value })}
-                              placeholder="Nome do evento..."
-                              className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <button onClick={() => saveEventEdit(item.id, ev.id)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 transition-colors">
-                            <Check className="w-3 h-3" /> Salvar
-                          </button>
-                          <button onClick={cancelEditEvent} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
-                          <button onClick={() => handleDeleteEvent(item.id, ev.id)} className="ml-auto text-xs text-muted-foreground/40 hover:text-destructive transition-colors flex items-center gap-1">
-                            <Trash2 className="w-3 h-3" /> Remover
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={ev.id} className="group flex items-center gap-3 py-1.5">
-                      <span className="text-xs text-muted-foreground tabular-nums w-24 flex-shrink-0">
-                        {ev.date ? new Date(ev.date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "Sem data"}
-                      </span>
-                      <span className={`flex-1 text-sm ${ev.title ? "text-foreground" : "text-muted-foreground/40 italic"}`}>
-                        {ev.title || "Sem nome"}
-                      </span>
-                      <button onClick={() => startEditEvent(ev)} className="p-1 text-muted-foreground/30 hover:text-muted-foreground transition-colors opacity-0 group-hover:opacity-100" title="Editar">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-                <button onClick={() => handleAddEvent(item.id)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1">
-                  <Plus className="w-3 h-3" /> Adicionar evento
-                </button>
+                    const seenByFase: Record<number, number[]> = { 0: [], 1: [], 2: [] };
+                    return positioned.map(({ m, left, fase }) => {
+                      const seenLefts = seenByFase[fase];
+                      const collisionIndex = seenLefts.filter(l => Math.abs(l - left) < 1.5).length;
+                      seenLefts.push(left);
+                      const collisionOffset = collisionIndex % 2 === 0
+                        ? Math.ceil(collisionIndex / 2) * 4
+                        : -Math.ceil(collisionIndex / 2) * 4;
+                      const yOffset = LANE_Y[fase] + collisionOffset;
+                      const color = colorForTipo(m.tipo) ?? "#a78bfa";
+                      const dateLabel = formatDateBR(m.meeting_date);
+                      return (
+                        <MeetingDot
+                          key={m.id}
+                          color={color}
+                          left={left}
+                          yOffset={yOffset}
+                          label={`${m.name} · ${m.tipo ?? "Sem tipo"} · ${dateLabel}`}
+                        />
+                      );
+                    });
+                  })()}
+                </div>
               </div>
-            </div>
-          ))}
+
+              <div className="flex items-center gap-5 mt-2 flex-wrap" style={{ marginLeft: TITLE_COL }}>
+                {([0, 1, 2] as const).map((fase) => (
+                  <span key={fase} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: FASE_COLOR[fase] }} />
+                    {FASE_LABEL[fase]}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 

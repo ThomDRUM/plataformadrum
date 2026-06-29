@@ -46,7 +46,7 @@ export function LoginForm() {
         .single();
 
       const role = profile?.role;
-      window.location.href = role === "admin" ? "/admin" : role === "mentor" ? "/mentor/projeto" : "/momento";
+      window.location.href = role === "admin" ? "/admin" : role === "mentor" ? "/mentor/projeto" : "/";
     } catch (err) {
       setError("Erro ao conectar. Tente novamente.");
       setLoading(false);

@@ -6,19 +6,15 @@ import { logout } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
 import {
   Home,
-  Layers,
   BookOpen,
-  MessageSquare,
   LogOut,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { href: "/momento", label: "Home", icon: Home },
-  { href: "/competencia", label: "Competência", icon: Layers },
-  { href: "/repertorio", label: "Repertório", icon: BookOpen },
-  { href: "/reflexoes", label: "Reflexões", icon: MessageSquare },
+  { href: "/", label: "Home", icon: Home, isActive: (p: string) => p === "/" },
+  { href: "/aprender", label: "Aprender", icon: BookOpen, isActive: (p: string) => p === "/aprender" || p.startsWith("/modulo") },
 ];
 
 interface StudentSidebarProps {
@@ -53,8 +49,8 @@ export function StudentSidebar({ userName, programName = "Minha Jornada" }: Stud
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href || pathname.startsWith(href + "/");
+        {navItems.map(({ href, label, icon: Icon, isActive: checkActive }) => {
+          const isActive = checkActive(pathname);
           return (
             <Link
               key={href}

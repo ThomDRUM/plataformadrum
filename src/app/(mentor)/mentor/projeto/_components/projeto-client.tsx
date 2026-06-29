@@ -116,7 +116,9 @@ function EditableText({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function ProjetoClient({ projectId, familyName, overview, outcomes: initialOutcomes, rules, roles: initialRoles }: Props) {
+export function ProjetoClient({
+  projectId, familyName, overview, outcomes: initialOutcomes, rules, roles: initialRoles,
+}: Props) {
   const [intention, setIntention] = useState(overview.intention);
   const [mwta, setMwta]           = useState(overview.mwta);
   const [pointA, setPointA]       = useState(overview.point_a);

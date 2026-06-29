@@ -4,14 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Calendar, Users, LogOut } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, GraduationCap, BookOpen, LogOut, Handshake } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
   { href: "/mentor/projeto", label: "Projeto", icon: LayoutDashboard },
   { href: "/mentor/cronograma", label: "Cronograma", icon: Calendar },
+  { href: "/mentor/alinhamentos", label: "Alinhamentos", icon: Handshake },
   { href: "/mentor/familia", label: "Família", icon: Users },
+  { href: "/mentor/mentorados", label: "Mentorados", icon: GraduationCap },
+  { href: "/mentor/aprender", label: "Aprender", icon: BookOpen },
 ];
 
 interface Props {

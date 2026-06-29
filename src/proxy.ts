@@ -39,9 +39,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Role-based redirect only from root "/"
+  // Role-based redirect only from root "/" — students render "/" directly (it's their home page)
   if (pathname === "/") {
-    return redirectByRole(request, session.user.id, supabase);
+    return redirectByRole(request, session.user.id, supabase, supabaseResponse);
   }
 
   return supabaseResponse;
@@ -50,7 +50,8 @@ export async function proxy(request: NextRequest) {
 async function redirectByRole(
   request: NextRequest,
   userId: string,
-  supabase: ReturnType<typeof createServerClient>
+  supabase: ReturnType<typeof createServerClient>,
+  supabaseResponse: NextResponse
 ) {
   const { data: profile } = await supabase
     .from("profiles")
@@ -64,7 +65,7 @@ async function redirectByRole(
   if (profile?.role === "mentor") {
     return NextResponse.redirect(new URL("/mentor/projeto", request.url));
   }
-  return NextResponse.redirect(new URL("/momento", request.url));
+  return supabaseResponse;
 }
 
 export const config = {

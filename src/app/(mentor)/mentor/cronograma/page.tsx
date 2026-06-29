@@ -23,15 +23,20 @@ export default async function CronogramaPage() {
 
   const { data: scheduleItems } = await supabase
     .from("project_schedule")
-    .select("id, title, start_date, end_date, status, mentor_notes, has_events, project_events(id, title, date)")
+    .select("id, title, start_date, end_date, status, mentor_notes")
     .eq("project_id", projectId)
     .order("order_index");
+
+  const { data: meetings } = await supabase
+    .from("project_meetings")
+    .select("id, name, meeting_date, tipo")
+    .eq("project_id", projectId)
+    .order("meeting_date");
 
   type RawItem = {
     id: string; title: string;
     start_date: string | null; end_date: string | null;
-    status: string; mentor_notes: string; has_events: boolean;
-    project_events: { id: string; title: string; date: string | null }[];
+    status: string; mentor_notes: string;
   };
 
   const items = (scheduleItems ?? []) as RawItem[];
@@ -40,9 +45,12 @@ export default async function CronogramaPage() {
     <CronogramaClient
       projectId={projectId}
       familyName={familyName}
+      startDate={project?.start_date ?? null}
+      endDate={project?.end_date ?? null}
       projectStart={projectStart}
       projectEnd={projectEnd}
       items={items as Parameters<typeof CronogramaClient>[0]["items"]}
+      meetings={(meetings ?? []) as { id: string; name: string; meeting_date: string | null; tipo: string | null }[]}
     />
   );
 }
