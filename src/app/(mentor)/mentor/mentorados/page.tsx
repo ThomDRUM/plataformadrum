@@ -18,18 +18,18 @@ export default async function MentoradosPage() {
   const { data: students } = projectIds.length
     ? await supabase
         .from("profiles")
-        .select("id, full_name, student_type")
+        .select("id, full_name, student_type, trail_id")
         .eq("role", "student")
         .in("project_id", projectIds)
     : { data: [] };
 
   const mentorados = await Promise.all(
     (students ?? []).map(async (student) => {
-      if (!student.student_type) {
+      if (!student.trail_id) {
         return {
           id: student.id,
           fullName: student.full_name,
-          studentType: null as string | null,
+          studentType: student.student_type as string | null,
           modulesUnlocked: 0,
           modulesTotal: 0,
         };
@@ -38,7 +38,7 @@ export default async function MentoradosPage() {
       const { modules } = await getStudentAccessData(
         supabase,
         student.id,
-        student.student_type
+        student.trail_id
       );
 
       const modulesUnlocked = modules.filter((m) => m.unlocked).length;

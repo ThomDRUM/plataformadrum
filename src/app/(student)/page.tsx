@@ -10,11 +10,11 @@ export default async function StudentHomePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("student_type")
+    .select("trail_id")
     .eq("id", user.id)
     .single();
 
-  if (!profile?.student_type) {
+  if (!profile?.trail_id) {
     return (
       <div className="py-20 text-center">
         <p className="text-muted-foreground text-sm">Sua jornada ainda está sendo preparada.</p>
@@ -25,7 +25,7 @@ export default async function StudentHomePage() {
   const { trail, modules, topicsByModule, isModuleComplete } = await getStudentAccessData(
     supabase,
     user.id,
-    profile.student_type
+    profile.trail_id
   );
 
   if (!trail) {

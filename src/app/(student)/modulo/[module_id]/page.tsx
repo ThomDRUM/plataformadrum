@@ -14,16 +14,16 @@ export default async function ModulePage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("student_type")
+    .select("trail_id")
     .eq("id", user.id)
     .single();
 
-  if (!profile?.student_type) redirect("/");
+  if (!profile?.trail_id) redirect("/");
 
   const { modules, topicsByModule } = await getStudentAccessData(
     supabase,
     user.id,
-    profile.student_type
+    profile.trail_id
   );
 
   const mod = modules.find((m) => m.id === module_id);

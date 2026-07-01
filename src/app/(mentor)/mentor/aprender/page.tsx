@@ -9,7 +9,15 @@ export default async function MentorAprenderPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { trail, modules } = await getStudentAccessData(supabase, user.id, "mentor");
+  const { data: mentorTrail } = await supabase
+    .from("trails")
+    .select("id")
+    .eq("trail_type", "mentor")
+    .single();
+
+  const { trail, modules } = mentorTrail
+    ? await getStudentAccessData(supabase, user.id, mentorTrail.id)
+    : { trail: null, modules: [] };
 
   return (
     <div className="max-w-2xl">

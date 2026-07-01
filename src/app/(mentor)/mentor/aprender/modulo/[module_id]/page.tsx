@@ -12,7 +12,15 @@ export default async function MentorTrailModulePage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { modules, topicsByModule } = await getStudentAccessData(supabase, user.id, "mentor");
+  const { data: mentorTrail } = await supabase
+    .from("trails")
+    .select("id")
+    .eq("trail_type", "mentor")
+    .single();
+
+  if (!mentorTrail) redirect("/mentor/aprender");
+
+  const { modules, topicsByModule } = await getStudentAccessData(supabase, user.id, mentorTrail.id);
 
   const mod = modules.find((m) => m.id === module_id);
   if (!mod) redirect("/mentor/aprender");

@@ -8,14 +8,14 @@ type Client = SupabaseClient<Database>;
 export async function getTopicNavContext(
   supabase: Client,
   userId: string,
-  studentType: string,
+  trailId: string,
   moduleId: string,
   topicId: string
 ) {
   const { modules, topicsByModule, hasExercise, getTopicStatus } = await getStudentAccessData(
     supabase,
     userId,
-    studentType
+    trailId
   );
 
   const mod = modules.find((m) => m.id === moduleId);

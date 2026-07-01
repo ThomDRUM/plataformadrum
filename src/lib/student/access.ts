@@ -43,12 +43,12 @@ const EMPTY_RESULT: StudentAccessData = {
 export async function getStudentAccessData(
   supabase: Client,
   userId: string,
-  studentType: string
+  trailId: string
 ): Promise<StudentAccessData> {
   const { data: trail } = await supabase
     .from("trails")
     .select("id, title, intention, why")
-    .eq("trail_type", studentType)
+    .eq("id", trailId)
     .single();
 
   if (!trail) return EMPTY_RESULT;

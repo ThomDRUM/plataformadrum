@@ -24,7 +24,7 @@ export default async function MentoradoDetailPage({
 
   const { data: student } = await supabase
     .from("profiles")
-    .select("id, full_name, student_type, project_id")
+    .select("id, full_name, student_type, project_id, trail_id")
     .eq("id", user_id)
     .single();
 
@@ -34,7 +34,7 @@ export default async function MentoradoDetailPage({
 
   const typeLabel = student.student_type === "successor" ? "Sucessor" : student.student_type === "succeeded" ? "Sucedido" : null;
 
-  if (!student.student_type) {
+  if (!student.trail_id) {
     return (
       <div className="max-w-3xl space-y-6">
         <Link href="/mentor/mentorados" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -49,7 +49,7 @@ export default async function MentoradoDetailPage({
   const { modules, topicsByModule, hasExercise, getTopicStatus } = await getStudentAccessData(
     supabase,
     student.id,
-    student.student_type
+    student.trail_id
   );
 
   const moduleIds = modules.map((m) => m.id);

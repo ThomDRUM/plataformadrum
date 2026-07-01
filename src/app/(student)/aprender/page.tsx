@@ -9,16 +9,16 @@ export default async function AprenderEntryPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("student_type")
+    .select("trail_id")
     .eq("id", user.id)
     .single();
 
-  if (!profile?.student_type) redirect("/");
+  if (!profile?.trail_id) redirect("/");
 
   const { modules, topicsByModule, getTopicStatus } = await getStudentAccessData(
     supabase,
     user.id,
-    profile.student_type
+    profile.trail_id
   );
 
   const unlockedModules = modules.filter((m) => m.unlocked);

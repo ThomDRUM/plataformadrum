@@ -16,10 +16,18 @@ export async function getMentorTopicNavContext(
   topicId: string,
   notFoundHref: string
 ) {
+  const { data: mentorTrail } = await supabase
+    .from("trails")
+    .select("id")
+    .eq("trail_type", "mentor")
+    .single();
+
+  if (!mentorTrail) redirect(notFoundHref);
+
   const { modules, topicsByModule, hasExercise, getTopicStatus } = await getStudentAccessData(
     supabase,
     userId,
-    "mentor"
+    mentorTrail.id
   );
 
   const mod = modules.find((m) => m.id === moduleId);

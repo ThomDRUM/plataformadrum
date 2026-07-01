@@ -17,14 +17,14 @@ export default async function TopicOverviewPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("student_type")
+    .select("trail_id")
     .eq("id", user.id)
     .single();
 
-  if (!profile?.student_type) redirect("/");
+  if (!profile?.trail_id) redirect("/");
 
   const { modules, mod, topics, previousTopic, nextTopic, isLastTopic, hasExercise, getTopicStatus } =
-    await getTopicNavContext(supabase, user.id, profile.student_type, module_id, topic_id);
+    await getTopicNavContext(supabase, user.id, profile.trail_id, module_id, topic_id);
 
   const { data: topic } = await supabase
     .from("topics")
