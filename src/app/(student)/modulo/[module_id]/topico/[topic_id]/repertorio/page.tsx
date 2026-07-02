@@ -56,7 +56,7 @@ export default async function TopicRepertoirePage({
         moduleId={module_id}
       />
 
-      <main className="flex-1 ml-64 px-10 py-10 max-w-2xl">
+      <main className="flex-1 ml-64 px-10 py-10 max-w-4xl">
         <ModuleSelector
           modules={modules.map((m) => ({ id: m.id, title: m.title, orderIndex: m.orderIndex, unlocked: m.unlocked }))}
           currentModuleId={module_id}

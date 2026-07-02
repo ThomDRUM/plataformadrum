@@ -54,7 +54,7 @@ export default async function TopicOverviewPage({
         moduleId={module_id}
       />
 
-      <main className="flex-1 ml-64 px-10 py-10 max-w-2xl">
+      <main className="flex-1 ml-64 px-10 py-10 max-w-4xl">
         <ModuleSelector
           modules={modules.map((m) => ({ id: m.id, title: m.title, orderIndex: m.orderIndex, unlocked: m.unlocked }))}
           currentModuleId={module_id}
@@ -70,7 +70,7 @@ export default async function TopicOverviewPage({
               <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1">
                 O que você vai aprender
               </p>
-              <p className="text-sm text-foreground/80 leading-relaxed">
+              <p className="text-base text-foreground/80 leading-relaxed">
                 {topic.learning_objective}
               </p>
             </div>
@@ -81,7 +81,7 @@ export default async function TopicOverviewPage({
               <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1">
                 Por quê?
               </p>
-              <p className="text-sm text-muted-foreground leading-relaxed">{topic.why}</p>
+              <p className="text-base text-muted-foreground leading-relaxed">{topic.why}</p>
             </div>
           )}
         </div>

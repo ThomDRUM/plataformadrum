@@ -78,7 +78,7 @@ export default async function MentorTopicExercisePage({
         backLabel={BACK_LABEL}
       />
 
-      <main className="flex-1 ml-64 px-10 py-10 max-w-2xl">
+      <main className="flex-1 ml-64 px-10 py-10 max-w-4xl">
         <TrailTabs />
         <TrailModuleSelector
           modules={modules}

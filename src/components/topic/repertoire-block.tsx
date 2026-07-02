@@ -93,7 +93,7 @@ export function RepertoireBlock({ userId, topicId, item, viewed, hasExercise, on
       {item.content_type === "text" && (
         item.content_html ? (
           <div
-            className="text-sm text-foreground/80 leading-relaxed space-y-3"
+            className="text-base text-foreground/80 leading-relaxed space-y-3"
             dangerouslySetInnerHTML={{ __html: item.content_html }}
           />
         ) : (

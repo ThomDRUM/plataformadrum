@@ -107,7 +107,7 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
         <div>
           <p className="text-sm font-medium text-foreground leading-snug">{exercise.title}</p>
           {exercise.instructions && (
-            <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
+            <p className="mt-1.5 text-base text-muted-foreground leading-relaxed">
               {exercise.instructions}
             </p>
           )}
@@ -116,7 +116,7 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
         <div className="space-y-4">
           {questions.map((q) => (
             <div key={q.id} className="space-y-1.5">
-              <p className="text-sm font-medium text-foreground leading-snug">{q.question_text}</p>
+              <p className="text-base font-medium text-foreground leading-snug">{q.question_text}</p>
               <textarea
                 value={answers[q.id] ?? ""}
                 onChange={(e) => handleChange(q.id, e.target.value)}

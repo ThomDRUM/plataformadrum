@@ -54,7 +54,7 @@ export default async function MentorTopicOverviewPage({
         backLabel={BACK_LABEL}
       />
 
-      <main className="flex-1 ml-64 px-10 py-10 max-w-2xl">
+      <main className="flex-1 ml-64 px-10 py-10 max-w-4xl">
         <TrailTabs />
         <TrailModuleSelector
           modules={modules}
@@ -73,7 +73,7 @@ export default async function MentorTopicOverviewPage({
               <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1">
                 O que você vai aprender
               </p>
-              <p className="text-sm text-foreground/80 leading-relaxed">
+              <p className="text-base text-foreground/80 leading-relaxed">
                 {topic.learning_objective}
               </p>
             </div>
@@ -84,7 +84,7 @@ export default async function MentorTopicOverviewPage({
               <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1">
                 Por quê?
               </p>
-              <p className="text-sm text-muted-foreground leading-relaxed">{topic.why}</p>
+              <p className="text-base text-muted-foreground leading-relaxed">{topic.why}</p>
             </div>
           )}
         </div>
