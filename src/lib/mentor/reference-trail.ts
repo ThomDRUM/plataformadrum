@@ -24,12 +24,13 @@ export async function getReferenceTrail(
   supabase: Client,
   trailType: ReferenceTrailType
 ): Promise<ReferenceTrailData | null> {
-  const { data: trail } = await supabase
+  const { data: trailRows } = await supabase
     .from("trails")
     .select("id, title, intention, why")
     .eq("trail_type", trailType)
-    .single();
+    .limit(1);
 
+  const trail = trailRows?.[0] ?? null;
   if (!trail) return null;
 
   const { data: modules } = await supabase
