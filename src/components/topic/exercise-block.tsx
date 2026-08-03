@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { FormattedText } from "@/components/topic/formatted-text";
 
 export interface ExerciseData {
   id: string;
@@ -107,16 +108,20 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
         <div>
           <p className="text-sm font-medium text-foreground leading-snug">{exercise.title}</p>
           {exercise.instructions && (
-            <p className="mt-1.5 text-base text-muted-foreground leading-relaxed">
-              {exercise.instructions}
-            </p>
+            <FormattedText
+              text={exercise.instructions}
+              className="mt-1.5 text-base text-muted-foreground leading-relaxed"
+            />
           )}
         </div>
 
         <div className="space-y-4">
           {questions.map((q) => (
             <div key={q.id} className="space-y-1.5">
-              <p className="text-base font-medium text-foreground leading-snug">{q.question_text}</p>
+              <FormattedText
+                text={q.question_text}
+                className="text-base font-medium text-foreground leading-snug"
+              />
               <textarea
                 value={answers[q.id] ?? ""}
                 onChange={(e) => handleChange(q.id, e.target.value)}
