@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { StudentSidebar } from "@/components/layout/student-sidebar";
+import { StudentHeader } from "@/components/layout/student-header";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export default async function StudentLayout({
   children,
@@ -21,13 +23,12 @@ export default async function StudentLayout({
   if (!profile || profile.role !== "student") redirect("/login");
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <SidebarProvider>
       <StudentSidebar userName={profile.full_name} />
-      <main className="flex-1 ml-56 min-h-screen">
-        <div className="px-10 py-10">
-          {children}
-        </div>
-      </main>
-    </div>
+      <SidebarInset>
+        <StudentHeader />
+        <div className="px-10 py-10">{children}</div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

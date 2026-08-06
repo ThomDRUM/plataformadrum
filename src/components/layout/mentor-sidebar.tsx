@@ -2,11 +2,38 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  Calendar,
+  Handshake,
+  Users,
+  GraduationCap,
+  BookOpen,
+  ChevronsUpDown,
+  LogOut,
+} from "lucide-react";
 import { logout } from "@/lib/actions/auth";
-import { cn } from "@/lib/utils";
-import { LayoutDashboard, Calendar, Users, GraduationCap, BookOpen, LogOut, Handshake } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+} from "@/components/ui/sidebar";
 
 const navItems = [
   { href: "/mentor/projeto", label: "Projeto", icon: LayoutDashboard },
@@ -17,12 +44,12 @@ const navItems = [
   { href: "/mentor/aprender", label: "Aprender", icon: BookOpen },
 ];
 
-interface Props {
+interface Props extends React.ComponentProps<typeof Sidebar> {
   userName: string;
   familyName: string;
 }
 
-export function MentorSidebar({ userName, familyName }: Props) {
+export function MentorSidebar({ userName, familyName, ...props }: Props) {
   const pathname = usePathname();
 
   const initials = userName
@@ -32,69 +59,101 @@ export function MentorSidebar({ userName, familyName }: Props) {
     .join("")
     .toUpperCase();
 
+  async function handleLogout() {
+    await logout();
+    window.location.href = "/login";
+  }
+
   return (
-    <aside className="fixed inset-y-0 left-0 w-56 bg-card border-r border-border flex flex-col z-20">
-      {/* Header */}
-      <div className="px-5 py-6 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-bold text-primary-foreground">D</span>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-foreground leading-none">DRUM</p>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">{familyName}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
-                isActive
-                  ? "bg-accent text-accent-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
+    <Sidebar collapsible="icon" variant="inset" {...props}>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="lg"
+              className="pointer-events-none hover:bg-transparent"
+              render={<Link href="/mentor/projeto" />}
             >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
+              <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground text-xs font-bold">
+                D
+              </div>
+              <div className="flex flex-col gap-0.5 leading-none min-w-0">
+                <span className="font-semibold">DRUM</span>
+                <span className="text-xs text-sidebar-foreground/70 truncate">
+                  {familyName}
+                </span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
 
-      {/* Footer */}
-      <div className="px-3 py-4 border-t border-border">
-        <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-md mb-1">
-          <Avatar className="w-7 h-7 flex-shrink-0">
-            <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-foreground truncate">{userName}</p>
-            <p className="text-xs text-muted-foreground">Mentor DRUM</p>
-          </div>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={async () => {
-            await logout();
-            window.location.href = "/login";
-          }}
-          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground h-8 px-2"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <span className="text-xs">Sair</span>
-        </Button>
-      </div>
-    </aside>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navItems.map(({ href, label, icon: Icon }) => {
+                const isActive = pathname.startsWith(href);
+                return (
+                  <SidebarMenuItem key={href}>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      tooltip={label}
+                      render={<Link href={href} />}
+                    >
+                      <Icon />
+                      <span>{label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuButton
+                    size="lg"
+                    className="data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
+                  />
+                }
+              >
+                <Avatar size="sm">
+                  <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex min-w-0 flex-1 flex-col leading-none">
+                  <span className="truncate text-sm font-medium">{userName}</span>
+                  <span className="text-xs text-sidebar-foreground/70">Mentor DRUM</span>
+                </div>
+                <ChevronsUpDown className="ml-auto size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="top" className="min-w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">{userName}</span>
+                    <span className="text-xs text-muted-foreground">Mentor DRUM</span>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
+                  <LogOut />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+
+      <SidebarRail />
+    </Sidebar>
   );
 }
