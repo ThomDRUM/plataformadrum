@@ -33,13 +33,21 @@ export async function getReferenceTrail(
   const trail = trailRows?.[0] ?? null;
   if (!trail) return null;
 
-  const { data: modules } = await supabase
-    .from("modules")
-    .select("id, title, intention, why, order_index")
+  const { data: trailModules } = await supabase
+    .from("trail_modules")
+    .select("order_index, modules(id, title, intention, why)")
     .eq("trail_id", trail.id)
     .order("order_index");
 
-  const allModules = modules ?? [];
+  const allModules = (trailModules ?? [])
+    .filter((tm) => tm.modules !== null)
+    .map((tm) => ({
+      id: tm.modules!.id,
+      title: tm.modules!.title,
+      intention: tm.modules!.intention,
+      why: tm.modules!.why,
+      order_index: tm.order_index,
+    }));
   const moduleIds = allModules.map((m) => m.id);
 
   const { data: topics } = moduleIds.length
