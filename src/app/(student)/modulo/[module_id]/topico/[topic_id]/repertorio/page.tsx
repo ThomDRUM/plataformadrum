@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionProfile } from "@/lib/auth/session";
 import { getTopicNavContext } from "@/lib/student/topic-context";
 import { LearnSidebar } from "@/components/topic/learn-sidebar";
 import { ModuleSelector } from "@/components/topic/module-selector";
@@ -12,19 +13,11 @@ export default async function TopicRepertoirePage({
 }) {
   const { module_id, topic_id } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("trail_id")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile?.trail_id) redirect("/");
+  const profile = await getSessionProfile();
+  if (!profile?.trailId) redirect("/");
 
   const { modules, mod, topics, hasExercise, topicHasExercise, nextTopicHref, getTopicStatus } =
-    await getTopicNavContext(supabase, user.id, profile.trail_id, module_id, topic_id);
+    await getTopicNavContext(supabase, profile.id, profile.trailId, module_id, topic_id);
 
   const { data: repertoireItems } = await supabase
     .from("repertoire_items")
@@ -63,7 +56,7 @@ export default async function TopicRepertoirePage({
         />
 
         <RepertorioView
-          userId={user.id}
+          userId={profile.id}
           topicId={topic_id}
           item={repertoireItem}
           hasExercise={topicHasExercise}

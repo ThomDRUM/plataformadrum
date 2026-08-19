@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionProfile } from "@/lib/auth/session";
 import { getTopicNavContext } from "@/lib/student/topic-context";
 import { LearnSidebar } from "@/components/topic/learn-sidebar";
 import { ModuleSelector } from "@/components/topic/module-selector";
@@ -12,19 +13,11 @@ export default async function TopicExercisePage({
 }) {
   const { module_id, topic_id } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("trail_id")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile?.trail_id) redirect("/");
+  const profile = await getSessionProfile();
+  if (!profile?.trailId) redirect("/");
 
   const { modules, mod, topics, hasExercise, topicHasExercise, nextTopicHref, getTopicStatus } =
-    await getTopicNavContext(supabase, user.id, profile.trail_id, module_id, topic_id);
+    await getTopicNavContext(supabase, profile.id, profile.trailId, module_id, topic_id);
 
   if (!topicHasExercise) redirect(`/modulo/${module_id}/topico/${topic_id}`);
 
@@ -51,7 +44,7 @@ export default async function TopicExercisePage({
     ? await supabase
         .from("exercise_answers")
         .select("id, question_id, answer_text, submitted_at")
-        .eq("user_id", user.id)
+        .eq("user_id", profile.id)
         .in("question_id", questionIds)
     : { data: [] };
 
@@ -82,7 +75,7 @@ export default async function TopicExercisePage({
         />
 
         <ExerciseBlock
-          userId={user.id}
+          userId={profile.id}
           topicId={topic_id}
           exercise={exercise}
           questions={questions}

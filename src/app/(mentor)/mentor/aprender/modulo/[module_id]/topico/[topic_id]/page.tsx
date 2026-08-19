@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth/session";
 import { getMentorTopicNavContext } from "@/lib/mentor/topic-nav";
 import { LearnSidebar } from "@/components/topic/learn-sidebar";
 import { TopicFooterNav } from "@/components/topic/topic-footer-nav";
@@ -17,7 +18,7 @@ export default async function MentorTopicOverviewPage({
 }) {
   const { module_id, topic_id } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/login");
 
   const { modules, mod, topics, previousTopic, nextTopic, isLastTopic, hasExercise, getTopicStatus } =

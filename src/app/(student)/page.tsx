@@ -1,20 +1,15 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionProfile } from "@/lib/auth/session";
 import { getStudentAccessData } from "@/lib/student/access";
 import { ModuleAccordion, type ModuleWithTopics } from "@/components/topic/module-accordion";
 
 export default async function StudentHomePage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const profile = await getSessionProfile();
+  if (!profile) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("trail_id")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile?.trail_id) {
+  if (!profile.trailId) {
     return (
       <div className="py-20 text-center">
         <p className="text-muted-foreground text-sm">Sua jornada ainda está sendo preparada.</p>
@@ -24,8 +19,8 @@ export default async function StudentHomePage() {
 
   const { trail, modules, topicsByModule, isModuleComplete } = await getStudentAccessData(
     supabase,
-    user.id,
-    profile.trail_id
+    profile.id,
+    profile.trailId
   );
 
   if (!trail) {

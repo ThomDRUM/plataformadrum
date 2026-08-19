@@ -1,22 +1,19 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getStudentAccessData } from "@/lib/student/access";
+import { getAuthUser } from "@/lib/auth/session";
+import { getCachedTrailIdByType, getStudentAccessData } from "@/lib/student/access";
 import { TrailTabs } from "./_components/trail-tabs";
 import { TrailModuleSelector } from "./_components/trail-module-selector";
 
 export default async function MentorAprenderPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/login");
 
-  const { data: mentorTrail } = await supabase
-    .from("trails")
-    .select("id")
-    .eq("trail_type", "mentor")
-    .single();
+  const mentorTrailId = await getCachedTrailIdByType(supabase, "mentor");
 
-  const { trail, modules } = mentorTrail
-    ? await getStudentAccessData(supabase, user.id, mentorTrail.id)
+  const { trail, modules } = mentorTrailId
+    ? await getStudentAccessData(supabase, user.id, mentorTrailId)
     : { trail: null, modules: [] };
 
   return (

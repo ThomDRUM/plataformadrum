@@ -36,7 +36,7 @@ export async function proxy(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirectToLogin(request);
   }
 
   // Role-based redirect only from root "/" — students render "/" directly (it's their home page)
@@ -45,6 +45,28 @@ export async function proxy(request: NextRequest) {
   }
 
   return supabaseResponse;
+}
+
+/**
+ * Redireciona para o login descartando os cookies de sessão do Supabase.
+ *
+ * Sem isso, um refresh token já consumido (rotacionado, revogado ou de um
+ * projeto recriado) fica no navegador indefinidamente: cada request tenta
+ * renovar, falha com "Invalid Refresh Token: Refresh Token Not Found" e
+ * repete. Limpar aqui encerra o ciclo no primeiro redirect.
+ */
+function redirectToLogin(request: NextRequest) {
+  const response = NextResponse.redirect(new URL("/login", request.url));
+
+  // O @supabase/ssr grava em `sb-<ref>-auth-token`, podendo fatiar em
+  // `.0`, `.1`, ... — por isso limpamos por prefixo, não por nome exato.
+  for (const cookie of request.cookies.getAll()) {
+    if (cookie.name.startsWith("sb-")) {
+      response.cookies.delete(cookie.name);
+    }
+  }
+
+  return response;
 }
 
 async function redirectByRole(

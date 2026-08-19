@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getStudentAccessData } from "@/lib/student/access";
+import { getSessionProfile } from "@/lib/auth/session";
+import { buildStudentAccessData, getCachedTrailContent, getUserProgress } from "@/lib/student/access";
 import { ModuleList, type ModuleData } from "./_components/module-list";
 
 export default async function MentoradoDetailPage({
@@ -12,21 +13,20 @@ export default async function MentoradoDetailPage({
 }) {
   const { user_id } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const mentor = await getSessionProfile();
+  if (!mentor) redirect("/login");
 
-  const { data: mentorProjects } = await supabase
-    .from("mentor_projects")
-    .select("project_id")
-    .eq("mentor_id", user.id);
+  const [mentorProjectsRes, studentRes] = await Promise.all([
+    supabase.from("mentor_projects").select("project_id").eq("mentor_id", mentor.id),
+    supabase
+      .from("profiles")
+      .select("id, full_name, student_type, project_id, trail_id")
+      .eq("id", user_id)
+      .single(),
+  ]);
 
-  const projectIds = (mentorProjects ?? []).map((mp) => mp.project_id);
-
-  const { data: student } = await supabase
-    .from("profiles")
-    .select("id, full_name, student_type, project_id, trail_id")
-    .eq("id", user_id)
-    .single();
+  const projectIds = (mentorProjectsRes.data ?? []).map((mp) => mp.project_id);
+  const student = studentRes.data;
 
   if (!student || !student.project_id || !projectIds.includes(student.project_id)) {
     redirect("/mentor/mentorados");
@@ -46,71 +46,57 @@ export default async function MentoradoDetailPage({
     );
   }
 
-  const { modules, topicsByModule, hasExercise, getTopicStatus } = await getStudentAccessData(
-    supabase,
-    student.id,
-    student.trail_id
-  );
-
-  const moduleIds = modules.map((m) => m.id);
-  const { data: accessRows } = moduleIds.length
-    ? await supabase
-        .from("user_module_access")
-        .select("module_id, unlock_date, force_unlocked")
-        .eq("user_id", student.id)
-        .in("module_id", moduleIds)
-    : { data: [] };
-  const accessMap = new Map((accessRows ?? []).map((a) => [a.module_id, a]));
-
-  const allTopicIds = [...topicsByModule.values()].flat().map((t) => t.id);
-
-  const { data: progressRows } = allTopicIds.length
-    ? await supabase
-        .from("user_topic_progress")
-        .select("topic_id, repertoire_viewed, exercise_completed")
-        .eq("user_id", student.id)
-        .in("topic_id", allTopicIds)
-    : { data: [] };
-  const progressByTopicId = new Map((progressRows ?? []).map((p) => [p.topic_id, p]));
-
-  const { data: exerciseRows } = allTopicIds.length
-    ? await supabase
-        .from("exercises")
-        .select("id, topic_id, title")
-        .in("topic_id", allTopicIds)
-    : { data: [] };
-  const exercises = exerciseRows ?? [];
+  const content = await getCachedTrailContent(supabase, student.trail_id);
+  const exercises = content.exercises;
   const exerciseIds = exercises.map((e) => e.id);
 
-  const { data: questionRows } = exerciseIds.length
-    ? await supabase
-        .from("exercise_questions")
-        .select("id, exercise_id, question_text, order_index")
-        .in("exercise_id", exerciseIds)
-        .order("order_index")
-    : { data: [] };
-  const questions = questionRows ?? [];
-  const questionIds = questions.map((q) => q.id);
+  // Progresso do aluno e o bloco de questões/respostas/notas em paralelo:
+  // as respostas trazem as notas do mentor aninhadas, num único round-trip.
+  const [userProgress, questionsRes] = await Promise.all([
+    getUserProgress(
+      supabase,
+      student.id,
+      content.modules.map((m) => m.id),
+      content.topics.map((t) => t.id)
+    ),
+    exerciseIds.length
+      ? supabase
+          .from("exercise_questions")
+          .select(
+            "id, exercise_id, question_text, order_index, exercise_answers(id, question_id, answer_text, submitted_at, mentor_answer_notes(answer_id, note, mentor_id))"
+          )
+          .in("exercise_id", exerciseIds)
+          .eq("exercise_answers.user_id", student.id)
+          .eq("exercise_answers.mentor_answer_notes.mentor_id", mentor.id)
+          .order("order_index")
+      : Promise.resolve({ data: [] }),
+  ]);
 
-  const { data: answerRows } = questionIds.length
-    ? await supabase
-        .from("exercise_answers")
-        .select("id, question_id, answer_text, submitted_at")
-        .eq("user_id", student.id)
-        .in("question_id", questionIds)
-    : { data: [] };
-  const answers = answerRows ?? [];
-  const answerIds = answers.map((a) => a.id);
+  const { modules, topicsByModule, hasExercise, getTopicStatus } = buildStudentAccessData(
+    content,
+    userProgress
+  );
 
-  const { data: noteRows } = answerIds.length
-    ? await supabase
-        .from("mentor_answer_notes")
-        .select("id, answer_id, note")
-        .eq("mentor_id", user.id)
-        .in("answer_id", answerIds)
-    : { data: [] };
-  const notesByAnswerId = new Map((noteRows ?? []).map((n) => [n.answer_id, n.note]));
-  const answersByQuestionId = new Map(answers.map((a) => [a.question_id, a]));
+  const accessMap = new Map(userProgress.access.map((a) => [a.module_id, a]));
+  const progressByTopicId = new Map(userProgress.progress.map((p) => [p.topic_id, p]));
+
+  const questions = questionsRes.data ?? [];
+
+  const answersByQuestionId = new Map(
+    questions.flatMap((q) => (q.exercise_answers ?? []).map((a) => [a.question_id, a] as const))
+  );
+  const notesByAnswerId = new Map(
+    questions.flatMap((q) =>
+      (q.exercise_answers ?? []).flatMap((a) =>
+        (a.mentor_answer_notes ?? [])
+          // o filtro aninhado já restringe ao mentor logado; re-checar aqui
+          // garante que uma nota de outro mentor nunca vaze para a UI
+          .filter((n) => n.mentor_id === mentor.id)
+          .map((n) => [n.answer_id, n.note] as const)
+      )
+    )
+  );
+
   const questionsByExerciseId = new Map<string, typeof questions>();
   for (const q of questions) {
     const list = questionsByExerciseId.get(q.exercise_id) ?? [];
@@ -181,7 +167,7 @@ export default async function MentoradoDetailPage({
         </div>
       </div>
 
-      <ModuleList userId={student.id} mentorId={user.id} modules={moduleData} />
+      <ModuleList userId={student.id} mentorId={mentor.id} modules={moduleData} />
     </div>
   );
 }

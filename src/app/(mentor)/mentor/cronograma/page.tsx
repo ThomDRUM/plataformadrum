@@ -1,16 +1,17 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionProfile } from "@/lib/auth/session";
 import { CronogramaClient } from "./_components/cronograma-client";
 
 export default async function CronogramaPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const mentor = await getSessionProfile();
+  if (!mentor) redirect("/login");
 
   const { data: mp } = await supabase
     .from("mentor_projects")
     .select("project_id, projects(start_date, end_date, families(name))")
-    .eq("mentor_id", user.id)
+    .eq("mentor_id", mentor.id)
     .single();
 
   if (!mp) redirect("/login");
@@ -21,17 +22,21 @@ export default async function CronogramaPage() {
   const projectStart = project?.start_date ?? "2026-06-01";
   const projectEnd   = project?.end_date   ?? "2026-12-31";
 
-  const { data: scheduleItems } = await supabase
-    .from("project_schedule")
-    .select("id, title, start_date, end_date, status, mentor_notes")
-    .eq("project_id", projectId)
-    .order("order_index");
+  const [scheduleRes, meetingsRes] = await Promise.all([
+    supabase
+      .from("project_schedule")
+      .select("id, title, start_date, end_date, status, mentor_notes")
+      .eq("project_id", projectId)
+      .order("order_index"),
+    supabase
+      .from("project_meetings")
+      .select("id, name, meeting_date, tipo")
+      .eq("project_id", projectId)
+      .order("meeting_date"),
+  ]);
 
-  const { data: meetings } = await supabase
-    .from("project_meetings")
-    .select("id, name, meeting_date, tipo")
-    .eq("project_id", projectId)
-    .order("meeting_date");
+  const scheduleItems = scheduleRes.data;
+  const meetings = meetingsRes.data;
 
   type RawItem = {
     id: string; title: string;

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/database";
-import { getStudentAccessData } from "@/lib/student/access";
+import { getCachedTrailIdByType, getStudentAccessData } from "@/lib/student/access";
 
 type Client = SupabaseClient<Database>;
 
@@ -16,18 +16,14 @@ export async function getMentorTopicNavContext(
   topicId: string,
   notFoundHref: string
 ) {
-  const { data: mentorTrail } = await supabase
-    .from("trails")
-    .select("id")
-    .eq("trail_type", "mentor")
-    .single();
+  const mentorTrailId = await getCachedTrailIdByType(supabase, "mentor");
 
-  if (!mentorTrail) redirect(notFoundHref);
+  if (!mentorTrailId) redirect(notFoundHref);
 
   const { modules, topicsByModule, hasExercise, getTopicStatus } = await getStudentAccessData(
     supabase,
     userId,
-    mentorTrail.id
+    mentorTrailId
   );
 
   const mod = modules.find((m) => m.id === moduleId);

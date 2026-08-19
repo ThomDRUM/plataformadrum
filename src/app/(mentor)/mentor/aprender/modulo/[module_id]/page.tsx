@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getStudentAccessData } from "@/lib/student/access";
+import { getAuthUser } from "@/lib/auth/session";
+import { getCachedTrailIdByType, getStudentAccessData } from "@/lib/student/access";
 
 export default async function MentorTrailModulePage({
   params,
@@ -9,18 +10,14 @@ export default async function MentorTrailModulePage({
 }) {
   const { module_id } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/login");
 
-  const { data: mentorTrail } = await supabase
-    .from("trails")
-    .select("id")
-    .eq("trail_type", "mentor")
-    .single();
+  const mentorTrailId = await getCachedTrailIdByType(supabase, "mentor");
 
-  if (!mentorTrail) redirect("/mentor/aprender");
+  if (!mentorTrailId) redirect("/mentor/aprender");
 
-  const { modules, topicsByModule } = await getStudentAccessData(supabase, user.id, mentorTrail.id);
+  const { modules, topicsByModule } = await getStudentAccessData(supabase, user.id, mentorTrailId);
 
   const mod = modules.find((m) => m.id === module_id);
   if (!mod) redirect("/mentor/aprender");

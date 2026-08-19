@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth/session";
 import { MapaAlinhamentos } from "./_components/mapa-alinhamentos";
 import { ReunioesSection } from "./_components/reunioes-section";
 
 export default async function AlinhamentosPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/login");
 
   const { data: mp } = await supabase

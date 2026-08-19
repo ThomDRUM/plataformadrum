@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth/session";
 import {
   getReferenceTrail,
   getReferenceTopicMeta,
@@ -24,7 +25,7 @@ function trailBase(trailType: ReferenceTrailType) {
 
 export async function ReferenceOverviewPage({ trailType }: { trailType: ReferenceTrailType }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/login");
 
   const data = await getReferenceTrail(supabase, trailType);
