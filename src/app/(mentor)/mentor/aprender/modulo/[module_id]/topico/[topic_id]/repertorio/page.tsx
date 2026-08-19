@@ -9,7 +9,7 @@ import { RepertorioView } from "./repertorio-view";
 
 const BASE_HREF = "/mentor/aprender/modulo";
 const BACK_HREF = "/mentor/aprender";
-const BACK_LABEL = "Voltar à Trilha Mentor";
+const BACK_LABEL = "Voltar à Formação Mentor";
 
 export default async function MentorTopicRepertoirePage({
   params,

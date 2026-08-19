@@ -12,7 +12,9 @@ export default async function ProjetoPage() {
     .from("mentor_projects")
     .select("project_id, projects(families(name))")
     .eq("mentor_id", user.id)
-    .single();
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
 
   if (!mp) redirect("/login");
 

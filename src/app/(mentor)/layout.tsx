@@ -10,11 +10,15 @@ export default async function MentorLayout({ children }: { children: React.React
   if (!profile || profile.role !== "mentor") redirect("/login");
 
   const supabase = await createClient();
+  // `mentor_projects` é N:N — um mentor pode atender mais de uma família. Com
+  // `.single()` isto quebrava o layout inteiro no segundo vínculo.
   const { data: mp } = await supabase
     .from("mentor_projects")
     .select("projects(name, families(name))")
     .eq("mentor_id", profile.id)
-    .single();
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
 
   const project = mp?.projects as { name: string; families: { name: string } | null } | null;
   const familyName = project?.families?.name ?? "Projeto";

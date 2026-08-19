@@ -29,7 +29,7 @@ export function ReadOnlyRepertoireBlock({ item }: { item: RepertoireItemData | n
       {item?.content_type === "text" && (
         item.content_html ? (
           <div
-            className="text-sm text-foreground/80 leading-relaxed space-y-3"
+            className="tiptap-content text-foreground/80"
             dangerouslySetInnerHTML={{ __html: item.content_html }}
           />
         ) : (

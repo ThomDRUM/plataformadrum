@@ -12,7 +12,9 @@ export default async function CronogramaPage() {
     .from("mentor_projects")
     .select("project_id, projects(start_date, end_date, families(name))")
     .eq("mentor_id", mentor.id)
-    .single();
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
 
   if (!mp) redirect("/login");
 

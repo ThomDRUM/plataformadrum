@@ -13,7 +13,9 @@ export default async function AlinhamentosPage() {
     .from("mentor_projects")
     .select("project_id")
     .eq("mentor_id", user.id)
-    .single();
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
 
   if (!mp) redirect("/login");
 

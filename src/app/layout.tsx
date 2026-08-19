@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "DRUM — Plataforma de Desenvolvimento",
-  description: "Trilha de desenvolvimento profissional",
+  description: "Formação de desenvolvimento profissional",
 };
 
 export default function RootLayout({

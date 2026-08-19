@@ -92,8 +92,11 @@ export function RepertoireBlock({ userId, topicId, item, viewed, hasExercise, on
 
       {item.content_type === "text" && (
         item.content_html ? (
+          // `tiptap-content` é o que dá estilo a título, lista, citação e
+          // imagem — sem ela o HTML do editor sai sem hierarquia nenhuma,
+          // porque o preflight do Tailwind zera listas e headings.
           <div
-            className="text-base text-foreground/80 leading-relaxed space-y-3"
+            className="tiptap-content text-base text-foreground/80"
             dangerouslySetInnerHTML={{ __html: item.content_html }}
           />
         ) : (

@@ -44,12 +44,12 @@ export async function ReferenceOverviewPage({ trailType }: { trailType: Referenc
 
       {!data ? (
         <div className="py-16 text-center">
-          <p className="text-muted-foreground text-sm">Esta trilha ainda está sendo preparada.</p>
+          <p className="text-muted-foreground text-sm">Esta formação ainda está sendo preparada.</p>
         </div>
       ) : (
         <div>
           <p className="text-sm text-muted-foreground italic mb-6">
-            Você está visualizando a trilha do {label} como referência
+            Você está visualizando a formação do {label} como referência
           </p>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground leading-snug">
             {data.trail.title}

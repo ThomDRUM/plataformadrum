@@ -12,7 +12,9 @@ export default async function FamiliaPage() {
     .from("mentor_projects")
     .select("project_id, projects(family_id, families(id, name, history, mission, vision, values))")
     .eq("mentor_id", mentor.id)
-    .single();
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
 
   if (!mp) redirect("/login");
 
