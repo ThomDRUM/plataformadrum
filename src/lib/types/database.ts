@@ -445,9 +445,9 @@ export type Database = {
           created_at: string | null
           id: string
           intention: string | null
+          internal_name: string
           order_index: number
           title: string
-          trail_id: string
           updated_at: string | null
           why: string | null
         }
@@ -455,9 +455,9 @@ export type Database = {
           created_at?: string | null
           id?: string
           intention?: string | null
+          internal_name?: string
           order_index?: number
           title: string
-          trail_id: string
           updated_at?: string | null
           why?: string | null
         }
@@ -465,27 +465,41 @@ export type Database = {
           created_at?: string | null
           id?: string
           intention?: string | null
+          internal_name?: string
           order_index?: number
           title?: string
-          trail_id?: string
           updated_at?: string | null
           why?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "modules_trail_id_fkey"
-            columns: ["trail_id"]
-            isOneToOne: false
-            referencedRelation: "trails"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      needs_catalog: {
+        Row: {
+          created_at: string
+          expected_result: string
+          id: string
+          need_text: string
+        }
+        Insert: {
+          created_at?: string
+          expected_result: string
+          id?: string
+          need_text: string
+        }
+        Update: {
+          created_at?: string
+          expected_result?: string
+          id?: string
+          need_text?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
           created_at: string
           full_name: string
           id: string
+          identified_need_summary: string | null
           project_id: string | null
           role: string
           student_type: string | null
@@ -497,6 +511,7 @@ export type Database = {
           created_at?: string
           full_name: string
           id: string
+          identified_need_summary?: string | null
           project_id?: string | null
           role?: string
           student_type?: string | null
@@ -508,6 +523,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           id?: string
+          identified_need_summary?: string | null
           project_id?: string | null
           role?: string
           student_type?: string | null
@@ -891,6 +907,42 @@ export type Database = {
           },
         ]
       }
+      student_needs: {
+        Row: {
+          created_at: string
+          id: string
+          need_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          need_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          need_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_needs_need_id_fkey"
+            columns: ["need_id"]
+            isOneToOne: false
+            referencedRelation: "needs_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_needs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       topics: {
         Row: {
           created_at: string | null
@@ -928,6 +980,45 @@ export type Database = {
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trail_modules: {
+        Row: {
+          created_at: string | null
+          id: string
+          module_id: string
+          order_index: number
+          trail_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          module_id: string
+          order_index?: number
+          trail_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          module_id?: string
+          order_index?: number
+          trail_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trail_modules_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trail_modules_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "trails"
             referencedColumns: ["id"]
           },
         ]
@@ -1195,3 +1286,9 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const
