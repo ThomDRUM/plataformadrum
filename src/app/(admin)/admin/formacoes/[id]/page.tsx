@@ -34,7 +34,15 @@ export default async function FormacaoDetalhePage({
       <Separator className="my-10" />
 
       <SectionTitle>Dados da formação</SectionTitle>
-      <FormacaoForm trailId={id} initial={trail} />
+      <FormacaoForm
+        trailId={id}
+        initial={{
+          title: trail.title,
+          trailType: trail.trail_type,
+          intention: trail.intention,
+          why: trail.why,
+        }}
+      />
     </div>
   );
 }

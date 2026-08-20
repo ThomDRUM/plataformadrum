@@ -5,14 +5,29 @@ import { useRouter } from "next/navigation";
 import { createUser } from "@/lib/actions/admin/users";
 import { Field, TextField, SelectField, FormError } from "@/components/admin/form-fields";
 import { Button } from "@/components/ui/button";
-import { LinkButton } from "@/components/ui/link-button";
+import { cn } from "@/lib/utils";
 
 interface Props {
   trails: { id: string; title: string; trail_type: string }[];
   families: { id: string; name: string; projectId: string | null }[];
+  /**
+   * Chamado com o id do usuário recém-criado. Sem isso, o formulário navega
+   * para a tela dele — que é o que a rota `/novo` quer; o sheet, aberto de
+   * dentro da lista, prefere fechar e ficar na lista.
+   */
+  onCreated?: (userId: string) => void;
+  /** Botão de cancelar: um link de volta na rota, um `SheetClose` no sheet. */
+  cancel?: React.ReactNode;
+  className?: string;
 }
 
-export function NovoUsuarioForm({ trails, families }: Props) {
+export function NovoUsuarioForm({
+  trails,
+  families,
+  onCreated,
+  cancel,
+  className,
+}: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -45,13 +60,19 @@ export function NovoUsuarioForm({ trails, families }: Props) {
         return;
       }
 
-      router.push(`/admin/usuarios/${result.data.id}`);
       router.refresh();
+
+      if (onCreated) {
+        onCreated(result.data.id);
+        return;
+      }
+
+      router.push(`/admin/usuarios/${result.data.id}`);
     });
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
+    <form onSubmit={handleSubmit} className={cn("space-y-5", className)}>
       <FormError message={error} />
 
       <Field label="Nome completo">
@@ -122,9 +143,7 @@ export function NovoUsuarioForm({ trails, families }: Props) {
         <Button type="submit" size="lg" disabled={isPending}>
           {isPending ? "Criando…" : "Criar usuário"}
         </Button>
-        <LinkButton href="/admin/usuarios" variant="ghost" size="lg">
-          Cancelar
-        </LinkButton>
+        {cancel}
       </div>
     </form>
   );

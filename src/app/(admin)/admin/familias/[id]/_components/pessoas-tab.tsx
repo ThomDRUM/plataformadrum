@@ -1,19 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { X, Plus } from "lucide-react";
 import {
   setUserProject,
   addMentorToProject,
   removeMentorFromProject,
 } from "@/lib/actions/admin/users";
-import { SectionTitle, EmptyState } from "@/components/admin/page-header";
-import { SelectField } from "@/components/admin/form-fields";
-import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/admin/page-header";
 import { STUDENT_TYPE_LABEL, type ActionResult } from "@/lib/admin/types";
+import { VinculoPanel, type VinculoOption } from "./vinculo-panel";
 
 interface Profile {
   id: string;
@@ -59,160 +56,78 @@ export function PessoasTab({ projects, students, mentorLinks, allProfiles }: Pro
   }
 
   const linkedStudentIds = new Set(students.map((s) => s.id));
-  const availableStudents = allProfiles.filter(
-    (p) => p.role === "student" && !linkedStudentIds.has(p.id)
-  );
+  const availableStudents: VinculoOption[] = allProfiles
+    .filter((p) => p.role === "student" && !linkedStudentIds.has(p.id))
+    .map((p) => ({
+      id: p.id,
+      // Vincular alguém que já está em outra família move o vínculo, não duplica.
+      label: p.project_id ? `${p.full_name} (já em outra família)` : p.full_name,
+    }));
 
   const linkedMentorIds = new Set(
     mentorLinks.filter((m) => m.projectId === project.id).map((m) => m.mentorId)
   );
-  const availableMentors = allProfiles.filter(
-    (p) => p.role === "mentor" && !linkedMentorIds.has(p.id)
-  );
+  const availableMentors: VinculoOption[] = allProfiles
+    .filter((p) => p.role === "mentor" && !linkedMentorIds.has(p.id))
+    .map((p) => ({ id: p.id, label: p.full_name }));
 
   return (
-    <div className="space-y-10 max-w-2xl">
-      <section>
-        <SectionTitle>Mentorados</SectionTitle>
+    <div className="grid items-start gap-4 xl:grid-cols-2">
+      <VinculoPanel
+        title="Mentorados"
+        description={`Vinculados ao projeto "${project.name}".`}
+        count={students.length}
+        emptyLabel="Nenhum mentorado vinculado a esta família."
+        removeLabel="Desvincular mentorado"
+        items={students.map((student) => ({
+          key: student.id,
+          profileId: student.id,
+          name: student.full_name,
+          meta: student.student_type
+            ? STUDENT_TYPE_LABEL[student.student_type] ?? student.student_type
+            : null,
+          onRemove: () =>
+            run(() => setUserProject(student.id, null), "Mentorado desvinculado."),
+        }))}
+        selectLabel="Selecione um mentorado…"
+        options={availableStudents}
+        exhaustedLabel="Todos os mentorados da plataforma já estão vinculados a esta família."
+        value={studentToAdd}
+        onValueChange={setStudentToAdd}
+        onAdd={() => {
+          run(() => setUserProject(studentToAdd, project.id), "Mentorado vinculado.");
+          setStudentToAdd("");
+        }}
+        disabled={isPending}
+      />
 
-        {students.length === 0 ? (
-          <p className="text-sm text-muted-foreground mb-3">
-            Nenhum mentorado vinculado a esta família.
-          </p>
-        ) : (
-          <ul className="divide-y divide-border border border-border rounded-lg mb-3">
-            {students.map((student) => (
-              <li key={student.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                <div className="min-w-0">
-                  <Link
-                    href={`/admin/usuarios/${student.id}`}
-                    className="text-sm font-medium hover:text-primary transition-colors"
-                  >
-                    {student.full_name}
-                  </Link>
-                  {student.student_type && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {STUDENT_TYPE_LABEL[student.student_type] ?? student.student_type}
-                    </span>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={isPending}
-                  className="text-muted-foreground hover:text-destructive"
-                  onClick={() =>
-                    run(() => setUserProject(student.id, null), "Mentorado desvinculado.")
-                  }
-                >
-                  <X className="w-3.5 h-3.5" />
-                  Desvincular
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {availableStudents.length > 0 && (
-          <div className="flex items-center gap-2">
-            <SelectField
-              value={studentToAdd}
-              onChange={(e) => setStudentToAdd(e.target.value)}
-              className="max-w-xs"
-            >
-              <option value="">Selecione um mentorado…</option>
-              {availableStudents.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name}
-                  {p.project_id ? " (já em outra família)" : ""}
-                </option>
-              ))}
-            </SelectField>
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              disabled={isPending || !studentToAdd}
-              onClick={() => {
-                run(() => setUserProject(studentToAdd, project.id), "Mentorado vinculado.");
-                setStudentToAdd("");
-              }}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Vincular
-            </Button>
-          </div>
-        )}
-      </section>
-
-      <section>
-        <SectionTitle>Mentores</SectionTitle>
-        <p className="mb-3 text-xs text-muted-foreground">
-          O mentor acompanha todos os mentorados desta família.
-        </p>
-
-        {mentorLinks.length === 0 ? (
-          <p className="text-sm text-muted-foreground mb-3">Nenhum mentor vinculado.</p>
-        ) : (
-          <ul className="divide-y divide-border border border-border rounded-lg mb-3">
-            {mentorLinks.map((link) => (
-              <li key={link.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                <Link
-                  href={`/admin/usuarios/${link.mentorId}`}
-                  className="text-sm font-medium hover:text-primary transition-colors"
-                >
-                  {link.name}
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={isPending}
-                  className="text-muted-foreground hover:text-destructive"
-                  onClick={() =>
-                    run(
-                      () => removeMentorFromProject(link.mentorId, link.projectId),
-                      "Mentor desvinculado."
-                    )
-                  }
-                >
-                  <X className="w-3.5 h-3.5" />
-                  Desvincular
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {availableMentors.length > 0 && (
-          <div className="flex items-center gap-2">
-            <SelectField
-              value={mentorToAdd}
-              onChange={(e) => setMentorToAdd(e.target.value)}
-              className="max-w-xs"
-            >
-              <option value="">Selecione um mentor…</option>
-              {availableMentors.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name}
-                </option>
-              ))}
-            </SelectField>
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              disabled={isPending || !mentorToAdd}
-              onClick={() => {
-                run(() => addMentorToProject(mentorToAdd, project.id), "Mentor vinculado.");
-                setMentorToAdd("");
-              }}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Vincular
-            </Button>
-          </div>
-        )}
-      </section>
+      <VinculoPanel
+        title="Mentores"
+        description="O mentor acompanha todos os mentorados desta família."
+        count={mentorLinks.length}
+        emptyLabel="Nenhum mentor vinculado."
+        removeLabel="Desvincular mentor"
+        items={mentorLinks.map((link) => ({
+          key: link.id,
+          profileId: link.mentorId,
+          name: link.name,
+          onRemove: () =>
+            run(
+              () => removeMentorFromProject(link.mentorId, link.projectId),
+              "Mentor desvinculado."
+            ),
+        }))}
+        selectLabel="Selecione um mentor…"
+        options={availableMentors}
+        exhaustedLabel="Todos os mentores da plataforma já acompanham esta família."
+        value={mentorToAdd}
+        onValueChange={setMentorToAdd}
+        onAdd={() => {
+          run(() => addMentorToProject(mentorToAdd, project.id), "Mentor vinculado.");
+          setMentorToAdd("");
+        }}
+        disabled={isPending}
+      />
     </div>
   );
 }

@@ -1,54 +1,28 @@
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { listModules } from "@/lib/admin/queries";
-import { PageHeader, SectionTitle, EmptyState } from "@/components/admin/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { ModuloForm } from "./_components/modulo-form";
+import { PageHeader, EmptyState } from "@/components/admin/page-header";
+import { ModulosTable } from "./_components/modulos-table";
+import { NovoModuloSheet } from "./_components/novo-modulo-sheet";
 
 export default async function ModulosPage() {
   const modules = await listModules();
 
+  const novoModulo = <NovoModuloSheet />;
+
   return (
-    <div className="max-w-3xl">
+    <div>
+      {/* Com a lista vazia não há toolbar para hospedar a ação, então ela volta
+          para o cabeçalho — senão não haveria como criar o primeiro módulo. */}
       <PageHeader
         title="Módulos"
         description="Cada módulo tem tópicos, e cada tópico tem repertório e exercício. Módulos são independentes e podem ser reaproveitados em mais de uma formação."
+        action={modules.length === 0 ? novoModulo : undefined}
       />
 
       {modules.length === 0 ? (
         <EmptyState>Nenhum módulo criado ainda.</EmptyState>
       ) : (
-        <ul className="divide-y divide-border border border-border rounded-lg">
-          {modules.map((mod) => (
-            <li key={mod.id}>
-              <Link
-                href={`/admin/modulos/${mod.id}`}
-                className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{mod.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {mod.topicCount} {mod.topicCount === 1 ? "tópico" : "tópicos"}
-                    {mod.trailTitles.length > 0 && ` · ${mod.trailTitles.join(", ")}`}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  {mod.trailTitles.length === 0 && (
-                    <Badge variant="outline">Fora de formações</Badge>
-                  )}
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <ModulosTable modules={modules} action={novoModulo} />
       )}
-
-      <Separator className="my-10" />
-
-      <SectionTitle>Novo módulo</SectionTitle>
-      <ModuloForm />
     </div>
   );
 }

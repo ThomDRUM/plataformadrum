@@ -115,6 +115,70 @@ export async function updateUserProfile(
   }
 }
 
+/**
+ * E-mail vive em `auth.users`, fora de `profiles`, então a listagem não o traz.
+ * O dialog de informações busca sob demanda — uma chamada por abertura, em vez
+ * de um `listUsers` do Auth (paginado) para carregar a tabela inteira.
+ */
+export async function fetchUserEmail(
+  userId: string
+): Promise<ActionResult<{ email: string | null }>> {
+  try {
+    const { db } = await assertAdmin();
+    const { data, error } = await db.auth.admin.getUserById(userId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, data: { email: data.user?.email ?? null } };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+const updateBasicsSchema = z.object({
+  fullName: z.string().trim().min(2, "Informe o nome completo."),
+  role: z.enum(ROLES),
+  studentType: z.enum(["successor", "succeeded"]).nullable(),
+});
+
+export type UpdateBasicsInput = z.infer<typeof updateBasicsSchema>;
+
+/**
+ * Edição rápida a partir da lista: nome, papel e tipo de mentorado.
+ *
+ * Existe separada de `updateUserProfile` porque aquela também grava
+ * `yearly_intention` — chamá-la sem esse campo apagaria a intenção já escrita.
+ */
+export async function updateUserBasics(
+  userId: string,
+  input: UpdateBasicsInput
+): Promise<ActionResult> {
+  const parsed = updateBasicsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+  const { fullName, role, studentType } = parsed.data;
+
+  try {
+    const { db } = await assertAdmin();
+
+    const { error } = await db
+      .from("profiles")
+      .update({
+        full_name: fullName,
+        role,
+        student_type: role === "student" ? studentType : null,
+      })
+      .eq("id", userId);
+
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath("/admin/usuarios");
+    revalidatePath(`/admin/usuarios/${userId}`);
+    return { ok: true };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 /** Formação do usuário — `profiles.trail_id`. */
 export async function setUserTrail(
   userId: string,

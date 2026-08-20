@@ -1,14 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
+import { listUserFormOptions } from "@/lib/admin/queries";
 import { PageHeader } from "@/components/admin/page-header";
-import { NovoUsuarioForm } from "./novo-usuario-form";
+import { LinkButton } from "@/components/ui/link-button";
+import { NovoUsuarioForm } from "../_components/novo-usuario-form";
 
 export default async function NovoUsuarioPage() {
-  const supabase = await createClient();
-
-  const [{ data: trails }, { data: families }] = await Promise.all([
-    supabase.from("trails").select("id, title, trail_type").order("title"),
-    supabase.from("families").select("id, name, projects(id)").order("name"),
-  ]);
+  const { trails, families } = await listUserFormOptions();
 
   return (
     <div className="max-w-3xl">
@@ -20,12 +16,14 @@ export default async function NovoUsuarioPage() {
       />
 
       <NovoUsuarioForm
-        trails={trails ?? []}
-        families={(families ?? []).map((f) => ({
-          id: f.id,
-          name: f.name,
-          projectId: (f.projects as { id: string }[] | null)?.[0]?.id ?? null,
-        }))}
+        trails={trails}
+        families={families}
+        className="max-w-lg"
+        cancel={
+          <LinkButton href="/admin/usuarios" variant="ghost" size="lg">
+            Cancelar
+          </LinkButton>
+        }
       />
     </div>
   );

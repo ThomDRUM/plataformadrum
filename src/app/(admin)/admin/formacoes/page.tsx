@@ -1,54 +1,28 @@
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { listTrails } from "@/lib/admin/queries";
-import { TRAIL_TYPE_LABEL } from "@/lib/admin/types";
-import { PageHeader, SectionTitle, EmptyState } from "@/components/admin/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { FormacaoForm } from "./_components/formacao-form";
+import { PageHeader, EmptyState } from "@/components/admin/page-header";
+import { FormacoesTable } from "./_components/formacoes-table";
+import { NovaFormacaoSheet } from "./_components/nova-formacao-sheet";
 
 export default async function FormacoesPage() {
   const trails = await listTrails();
 
+  const novaFormacao = <NovaFormacaoSheet />;
+
   return (
-    <div className="max-w-3xl">
+    <div>
+      {/* Com a lista vazia não há toolbar para hospedar a ação, então ela volta
+          para o cabeçalho — senão não haveria como criar a primeira formação. */}
       <PageHeader
         title="Formações"
         description="Cada formação é uma sequência de módulos atribuída a mentorados e mentores."
+        action={trails.length === 0 ? novaFormacao : undefined}
       />
 
       {trails.length === 0 ? (
         <EmptyState>Nenhuma formação criada ainda.</EmptyState>
       ) : (
-        <ul className="divide-y divide-border border border-border rounded-lg">
-          {trails.map((trail) => (
-            <li key={trail.id}>
-              <Link
-                href={`/admin/formacoes/${trail.id}`}
-                className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{trail.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {trail.moduleCount} {trail.moduleCount === 1 ? "módulo" : "módulos"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <Badge variant="secondary">
-                    {TRAIL_TYPE_LABEL[trail.trailType] ?? trail.trailType}
-                  </Badge>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <FormacoesTable trails={trails} action={novaFormacao} />
       )}
-
-      <Separator className="my-10" />
-
-      <SectionTitle>Nova formação</SectionTitle>
-      <FormacaoForm />
     </div>
   );
 }

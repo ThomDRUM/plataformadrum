@@ -7,6 +7,12 @@ import {
   revalidateTrailContent,
   revalidateReferenceTrails,
 } from "@/lib/admin/revalidate";
+import {
+  getModuleOverview,
+  getTrailOverview,
+  type ModuleOverview,
+  type TrailOverview,
+} from "@/lib/admin/queries";
 import type { ActionResult } from "@/lib/admin/types";
 
 function fail(error: unknown): { ok: false; error: string } {
@@ -121,6 +127,23 @@ export async function deleteTrail(trailId: string): Promise<ActionResult> {
     revalidateTrail(trailId);
     revalidatePath("/admin/formacoes");
     return { ok: true };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
+ * Retrato completo da formação, buscado quando o dialog de informações abre —
+ * a listagem não carrega os módulos nem quem usa a formação.
+ */
+export async function fetchTrailOverview(
+  trailId: string
+): Promise<ActionResult<TrailOverview>> {
+  try {
+    await assertAdmin();
+    const overview = await getTrailOverview(trailId);
+    if (!overview) return { ok: false, error: "Formação não encontrada." };
+    return { ok: true, data: overview };
   } catch (error) {
     return fail(error);
   }
@@ -296,6 +319,23 @@ export async function deleteModule(moduleId: string): Promise<ActionResult> {
     revalidatePath("/admin/modulos");
     revalidatePath("/admin/formacoes");
     return { ok: true };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
+ * Retrato completo do módulo, buscado quando o dialog de informações abre — a
+ * listagem não carrega os tópicos.
+ */
+export async function fetchModuleOverview(
+  moduleId: string
+): Promise<ActionResult<ModuleOverview>> {
+  try {
+    await assertAdmin();
+    const overview = await getModuleOverview(moduleId);
+    if (!overview) return { ok: false, error: "Módulo não encontrado." };
+    return { ok: true, data: overview };
   } catch (error) {
     return fail(error);
   }

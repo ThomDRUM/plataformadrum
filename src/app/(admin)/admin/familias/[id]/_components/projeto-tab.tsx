@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { updateProject, createProject } from "@/lib/actions/admin/families";
 import { Field, TextField, SelectField, FormError } from "@/components/admin/form-fields";
+import { ProjectStatusBadge } from "@/components/admin/status-badge";
+import {
+  Frame,
+  FrameDescription,
+  FrameFooter,
+  FrameHeader,
+  FramePanel,
+  FrameTitle,
+} from "@/components/reui/frame";
 import { Button } from "@/components/ui/button";
 
 interface Project {
@@ -66,68 +75,99 @@ export function ProjetoTab({ familyId, projects }: Props) {
   }
 
   return (
-    <div className="space-y-8 max-w-2xl">
+    <div className="max-w-2xl space-y-4">
       <FormError message={error} />
 
       {projects.length === 0 && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-          <p className="text-sm text-foreground">
-            Esta família não tem projeto. Sem um projeto, não é possível vincular mentorados
-            nem mentores a ela.
-          </p>
-          <div className="mt-3 flex items-center gap-2">
-            <TextField
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Nome do projeto"
-            />
-            <Button
-              type="button"
-              size="lg"
-              disabled={isPending || newName.trim().length < 2}
-              onClick={handleCreate}
-            >
-              Criar projeto
-            </Button>
-          </div>
-        </div>
+        <Frame spacing="sm" className="[--frame-border-color:color-mix(in_oklch,var(--color-destructive)_35%,transparent)]">
+          <FrameHeader>
+            <FrameTitle>Esta família não tem projeto</FrameTitle>
+            <FrameDescription>
+              Sem um projeto, não é possível vincular mentorados nem mentores a ela.
+            </FrameDescription>
+          </FrameHeader>
+          <FrameFooter>
+            <div className="flex items-center gap-2">
+              <TextField
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Nome do projeto"
+                className="h-9"
+              />
+              <Button
+                type="button"
+                size="lg"
+                className="shrink-0"
+                disabled={isPending || newName.trim().length < 2}
+                onClick={handleCreate}
+              >
+                Criar projeto
+              </Button>
+            </div>
+          </FrameFooter>
+        </Frame>
       )}
 
       {projects.map((project) => (
-        <form key={project.id} onSubmit={(e) => handleSubmit(project, e)} className="space-y-4">
-          <Field label="Nome do projeto">
-            <TextField name="name" defaultValue={project.name} required minLength={2} />
-          </Field>
+        <form key={project.id} onSubmit={(e) => handleSubmit(project, e)}>
+          <Frame spacing="sm">
+            <FrameHeader>
+              <FrameTitle className="flex items-center gap-2">
+                {project.name}
+                <ProjectStatusBadge status={project.status} />
+              </FrameTitle>
+              <FrameDescription>
+                É por este projeto que mentorados e mentores se ligam à família.
+              </FrameDescription>
+            </FrameHeader>
 
-          <Field label="Status">
-            <SelectField name="status" defaultValue={project.status}>
-              <option value="active">Ativo</option>
-              <option value="paused">Pausado</option>
-              <option value="completed">Concluído</option>
-            </SelectField>
-          </Field>
+            <FramePanel>
+              <div className="space-y-4">
+                <Field label="Nome do projeto">
+                  <TextField name="name" defaultValue={project.name} required minLength={2} />
+                </Field>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Início">
-              <TextField name="start_date" type="date" defaultValue={project.start_date ?? ""} />
-            </Field>
-            <Field label="Término">
-              <TextField name="end_date" type="date" defaultValue={project.end_date ?? ""} />
-            </Field>
-          </div>
+                <Field label="Status">
+                  <SelectField name="status" defaultValue={project.status}>
+                    <option value="active">Ativo</option>
+                    <option value="paused">Pausado</option>
+                    <option value="completed">Concluído</option>
+                  </SelectField>
+                </Field>
 
-          <Field label="Duração (meses)">
-            <TextField
-              name="duration_months"
-              type="number"
-              min={1}
-              defaultValue={project.duration_months ?? ""}
-            />
-          </Field>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="Início">
+                    <TextField
+                      name="start_date"
+                      type="date"
+                      defaultValue={project.start_date ?? ""}
+                    />
+                  </Field>
+                  <Field label="Término">
+                    <TextField
+                      name="end_date"
+                      type="date"
+                      defaultValue={project.end_date ?? ""}
+                    />
+                  </Field>
+                  <Field label="Duração (meses)">
+                    <TextField
+                      name="duration_months"
+                      type="number"
+                      min={1}
+                      defaultValue={project.duration_months ?? ""}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </FramePanel>
 
-          <Button type="submit" size="lg" disabled={isPending}>
-            {isPending ? "Salvando…" : "Salvar projeto"}
-          </Button>
+            <FrameFooter>
+              <Button type="submit" size="lg" className="w-fit" disabled={isPending}>
+                {isPending ? "Salvando…" : "Salvar projeto"}
+              </Button>
+            </FrameFooter>
+          </Frame>
         </form>
       ))}
     </div>

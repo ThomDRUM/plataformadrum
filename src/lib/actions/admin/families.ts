@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/admin";
+import { getFamilyOverview, type FamilyOverview } from "@/lib/admin/queries";
 import type { ActionResult } from "@/lib/admin/types";
 
 function fail(error: unknown): { ok: false; error: string } {
@@ -87,6 +88,75 @@ export async function updateFamilyField(
 
     revalidatePath("/admin/familias");
     revalidatePath(`/admin/familias/${familyId}`);
+    return { ok: true };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
+ * Retrato completo da família, buscado quando o dialog de informações ou o
+ * sheet de edição abre — a listagem não carrega esses campos.
+ */
+export async function fetchFamilyOverview(
+  familyId: string
+): Promise<ActionResult<FamilyOverview>> {
+  try {
+    await assertAdmin();
+    const overview = await getFamilyOverview(familyId);
+    if (!overview) return { ok: false, error: "Família não encontrada." };
+    return { ok: true, data: overview };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+const updateContentSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome da família."),
+  businessName: z.string().trim(),
+  history: z.string(),
+  mission: z.string(),
+  vision: z.string(),
+  values: z.string(),
+});
+
+export type UpdateFamilyContentInput = z.infer<typeof updateContentSchema>;
+
+/**
+ * Grava os campos da família de uma vez.
+ *
+ * Substitui a sequência de `updateFamilyField` campo a campo que a aba "Dados"
+ * fazia: um único update, então ou tudo entra ou nada entra.
+ */
+export async function updateFamilyContent(
+  familyId: string,
+  input: UpdateFamilyContentInput
+): Promise<ActionResult> {
+  const parsed = updateContentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+  const { name, businessName, history, mission, vision, values } = parsed.data;
+
+  try {
+    const { db } = await assertAdmin();
+    const { error } = await db
+      .from("families")
+      .update({
+        name,
+        business_name: businessName,
+        history,
+        mission,
+        vision,
+        values,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", familyId);
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath("/admin/familias");
+    revalidatePath(`/admin/familias/${familyId}`);
+    revalidatePath("/mentor/familia");
     return { ok: true };
   } catch (error) {
     return fail(error);

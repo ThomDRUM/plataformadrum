@@ -26,7 +26,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="min-h-screen bg-background antialiased">
+      <body
+        className="min-h-screen bg-background antialiased"
+        suppressHydrationWarning
+      >
         <TooltipProvider>
           {children}
           <Toaster position="bottom-right" />

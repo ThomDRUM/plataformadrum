@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/admin/page-header";
-import { NovaFamiliaForm } from "./nova-familia-form";
+import { LinkButton } from "@/components/ui/link-button";
+import { NovaFamiliaForm } from "../_components/nova-familia-form";
 
 export default function NovaFamiliaPage() {
   return (
@@ -10,7 +11,15 @@ export default function NovaFamiliaPage() {
         backHref="/admin/familias"
         backLabel="Famílias"
       />
-      <NovaFamiliaForm />
+
+      <NovaFamiliaForm
+        className="max-w-lg"
+        cancel={
+          <LinkButton href="/admin/familias" variant="ghost" size="lg">
+            Cancelar
+          </LinkButton>
+        }
+      />
     </div>
   );
 }

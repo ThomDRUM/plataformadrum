@@ -33,7 +33,15 @@ export default async function ModuloDetalhePage({
       <Separator className="my-10" />
 
       <SectionTitle>Dados do módulo</SectionTitle>
-      <ModuloForm moduleId={id} initial={mod} />
+      <ModuloForm
+        moduleId={id}
+        initial={{
+          title: mod.title,
+          internalName: mod.internal_name,
+          intention: mod.intention,
+          why: mod.why,
+        }}
+      />
     </div>
   );
 }

@@ -20,7 +20,7 @@ export default async function FamiliaDetalhePage({
   const { family, projects, students, mentorLinks, allProfiles } = detail;
 
   return (
-    <div className="max-w-4xl">
+    <div>
       <PageHeader
         title={family.name}
         description={family.business_name || undefined}
