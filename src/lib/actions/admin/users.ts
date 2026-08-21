@@ -15,6 +15,10 @@ const createUserSchema = z.object({
   studentType: z.enum(["successor", "succeeded"]).nullable(),
   trailId: z.string().uuid().nullable(),
   projectId: z.string().uuid().nullable(),
+  /** role=mentor: projetos que ele passa a atender (derivados dos mentorados escolhidos). */
+  mentorProjectIds: z.array(z.string().uuid()).default([]),
+  /** role=student: mentores que passam a atender o projeto dele. */
+  mentorIds: z.array(z.string().uuid()).default([]),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
@@ -23,12 +27,15 @@ function fail(error: unknown): { ok: false; error: string } {
   return { ok: false, error: error instanceof Error ? error.message : String(error) };
 }
 
-export async function createUser(input: CreateUserInput): Promise<ActionResult<{ id: string }>> {
+export async function createUser(
+  input: CreateUserInput
+): Promise<ActionResult<{ id: string; linkError?: string }>> {
   const parsed = createUserSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
-  const { email, password, fullName, role, studentType, trailId, projectId } = parsed.data;
+  const { email, password, fullName, role, studentType, trailId, projectId, mentorProjectIds, mentorIds } =
+    parsed.data;
 
   try {
     const { db } = await assertAdmin();
@@ -66,11 +73,60 @@ export async function createUser(input: CreateUserInput): Promise<ActionResult<{
       return { ok: false, error: `Perfil não pôde ser criado: ${profileError.message}` };
     }
 
+    // Vínculo mentor↔mentorado. O schema não liga pessoa a pessoa: o mentorado
+    // pertence a um projeto (`profiles.project_id`) e o mentor atende projetos
+    // (`mentor_projects`). Então, nas duas direções, o vínculo é uma linha em
+    // `mentor_projects` — só muda de qual lado vem o projeto.
+    const links =
+      role === "mentor"
+        ? [...new Set(mentorProjectIds)].map((id) => ({
+            mentor_id: authData.user.id,
+            project_id: id,
+          }))
+        : role === "student" && projectId
+          ? [...new Set(mentorIds)].map((id) => ({ mentor_id: id, project_id: projectId }))
+          : [];
+
+    const linkError = links.length > 0 ? await createMentorLinks(db, links) : null;
+
     revalidatePath("/admin/usuarios");
-    return { ok: true, data: { id: authData.user.id } };
+    if (links.length > 0) revalidatePath("/admin/familias");
+
+    return {
+      ok: true,
+      data: { id: authData.user.id, ...(linkError ? { linkError } : {}) },
+    };
   } catch (error) {
     return fail(error);
   }
+}
+
+type MentorLink = { mentor_id: string; project_id: string };
+
+/**
+ * Insere os vínculos que ainda não existem e devolve a mensagem de erro, ou
+ * `null` em caso de sucesso. Um mentor já pode atender o projeto do mentorado,
+ * e a filtragem evita depender de constraint de unicidade em
+ * (`mentor_id`, `project_id`).
+ */
+async function createMentorLinks(
+  db: Awaited<ReturnType<typeof assertAdmin>>["db"],
+  links: MentorLink[]
+): Promise<string | null> {
+  const { data: existing, error: readError } = await db
+    .from("mentor_projects")
+    .select("mentor_id, project_id")
+    .in("mentor_id", links.map((l) => l.mentor_id))
+    .in("project_id", links.map((l) => l.project_id));
+
+  if (readError) return readError.message;
+
+  const seen = new Set((existing ?? []).map((e) => `${e.mentor_id}:${e.project_id}`));
+  const rows = links.filter((l) => !seen.has(`${l.mentor_id}:${l.project_id}`));
+  if (rows.length === 0) return null;
+
+  const { error } = await db.from("mentor_projects").insert(rows);
+  return error?.message ?? null;
 }
 
 const updateProfileSchema = z.object({

@@ -4,7 +4,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { updateFamilyContent, updateProject } from "@/lib/actions/admin/families";
+import {
+  addFamilyMember,
+  removeFamilyMember,
+  updateFamilyContent,
+  updateProject,
+  type FamilyMemberInput,
+} from "@/lib/actions/admin/families";
 import type { FamilyOverview } from "@/lib/admin/queries";
 import {
   Field,
@@ -24,6 +30,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { MembrosField, type MembroRow } from "./membros-field";
 
 interface Props {
   familyName: string;
@@ -34,28 +41,71 @@ interface Props {
 }
 
 /**
- * Edição da família a partir da lista: dados próprios e o projeto.
+ * Edição da família a partir da lista: dados próprios, projeto e árvore
+ * genealógica.
  *
  * Os vínculos de mentorado e mentor ficam fora — dependem da lista de perfis
  * disponíveis e continuam na tela da família.
  */
 export function EditarFamiliaSheet({ familyName, overview, open, onOpenChange }: Props) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        className="w-full gap-0 overflow-y-auto sm:max-w-lg"
+        overlayClassName={ADMIN_OVERLAY}
+      >
+        <SheetHeader>
+          <SheetTitle>Editar {familyName}</SheetTitle>
+          <SheetDescription>
+            Dados da família, projeto e árvore genealógica. Vincular mentorados e
+            mentores continua na tela da família.
+          </SheetDescription>
+        </SheetHeader>
+
+        {overview === undefined ? (
+          <p className="p-4 text-sm text-muted-foreground">Carregando…</p>
+        ) : overview === null ? (
+          <p className="p-4 text-sm text-muted-foreground">
+            Não foi possível carregar os dados desta família.
+          </p>
+        ) : (
+          // `key`: trocar de família remonta o formulário, e a lista de membros
+          // (que é estado, não prop) volta a partir do overview novo.
+          <FamiliaForm
+            key={overview.family.id}
+            overview={overview}
+            onDone={() => onOpenChange(false)}
+          />
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function FamiliaForm({
+  overview,
+  onDone,
+}: {
+  overview: FamilyOverview;
+  onDone: () => void;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [members, setMembers] = useState<MembroRow[]>(overview.members);
 
-  const project = overview?.projects[0] ?? null;
+  const familyId = overview.family.id;
+  const project = overview.projects[0] ?? null;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!overview) return;
     setError(null);
 
     const form = new FormData(e.currentTarget);
     const duration = String(form.get("duration_months") ?? "").trim();
 
     startTransition(async () => {
-      const familyResult = await updateFamilyContent(overview.family.id, {
+      const familyResult = await updateFamilyContent(familyId, {
         name: String(form.get("name") ?? "").trim(),
         businessName: String(form.get("business_name") ?? "").trim(),
         history: String(form.get("history") ?? ""),
@@ -73,7 +123,7 @@ export function EditarFamiliaSheet({ familyName, overview, open, onOpenChange }:
       // falhar, os dados da família já entraram — o erro diz exatamente isso
       // em vez de sugerir que nada foi salvo.
       if (project) {
-        const projectResult = await updateProject(project.id, overview.family.id, {
+        const projectResult = await updateProject(project.id, familyId, {
           name: String(form.get("project_name") ?? "").trim(),
           status: String(form.get("status") ?? "active") as
             | "active"
@@ -93,134 +143,132 @@ export function EditarFamiliaSheet({ familyName, overview, open, onOpenChange }:
 
       toast.success("Família atualizada.");
       router.refresh();
-      onOpenChange(false);
+      onDone();
+    });
+  }
+
+  // A família já existe, então membro entra e sai direto no banco — não há como
+  // acumular a árvore até o "Salvar" sem inventar um diff de linhas.
+  function handleAddMember(member: FamilyMemberInput) {
+    startTransition(async () => {
+      const result = await addFamilyMember(familyId, member);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setMembers((current) => [...current, result.data.member]);
+      // A listagem mostra a contagem de membros por família.
+      router.refresh();
+    });
+  }
+
+  function handleRemoveMember(memberId: string) {
+    startTransition(async () => {
+      const result = await removeFamilyMember(familyId, memberId);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setMembers((current) => current.filter((m) => m.id !== memberId));
+      router.refresh();
     });
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        className="w-full gap-0 overflow-y-auto sm:max-w-lg"
-        overlayClassName={ADMIN_OVERLAY}
-      >
-        <SheetHeader>
-          <SheetTitle>Editar {familyName}</SheetTitle>
-          <SheetDescription>
-            Dados da família e do projeto. Vincular mentorados e mentores continua na
-            tela da família.
-          </SheetDescription>
-        </SheetHeader>
+    <form onSubmit={handleSubmit} className="space-y-5 p-4">
+      <FormError message={error} />
 
-        {overview === undefined ? (
-          <p className="p-4 text-sm text-muted-foreground">Carregando…</p>
-        ) : overview === null ? (
-          <p className="p-4 text-sm text-muted-foreground">
-            Não foi possível carregar os dados desta família.
-          </p>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-5 p-4">
-            <FormError message={error} />
+      <Field label="Nome da família">
+        <TextField
+          name="name"
+          defaultValue={overview.family.name}
+          required
+          minLength={2}
+          autoComplete="off"
+        />
+      </Field>
 
-            <Field label="Nome da família">
-              <TextField
-                name="name"
-                defaultValue={overview.family.name}
-                required
-                minLength={2}
-                autoComplete="off"
-              />
+      <Field label="Nome do negócio" hint="Opcional.">
+        <TextField name="business_name" defaultValue={overview.family.businessName} />
+      </Field>
+
+      <Separator />
+
+      {project ? (
+        <>
+          <Field label="Nome do projeto">
+            <TextField name="project_name" defaultValue={project.name} required minLength={2} />
+          </Field>
+
+          <Field label="Status do projeto">
+            <SelectField name="status" defaultValue={project.status}>
+              <option value="active">Ativo</option>
+              <option value="paused">Pausado</option>
+              <option value="completed">Concluído</option>
+            </SelectField>
+          </Field>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Início">
+              <TextField name="start_date" type="date" defaultValue={project.startDate ?? ""} />
             </Field>
-
-            <Field label="Nome do negócio" hint="Opcional.">
-              <TextField
-                name="business_name"
-                defaultValue={overview.family.businessName}
-              />
+            <Field label="Término">
+              <TextField name="end_date" type="date" defaultValue={project.endDate ?? ""} />
             </Field>
+          </div>
 
-            <Separator />
+          <Field label="Duração (meses)">
+            <TextField
+              name="duration_months"
+              type="number"
+              min={1}
+              defaultValue={project.durationMonths ?? ""}
+            />
+          </Field>
+        </>
+      ) : (
+        // Sem projeto a família não recebe ninguém, e criar um é feito na
+        // tela da família — aqui só o aviso.
+        <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+          Esta família não tem projeto. Sem um projeto, não é possível vincular
+          mentorados nem mentores. Crie um na tela da família.
+        </p>
+      )}
 
-            {project ? (
-              <>
-                <Field label="Nome do projeto">
-                  <TextField
-                    name="project_name"
-                    defaultValue={project.name}
-                    required
-                    minLength={2}
-                  />
-                </Field>
+      <Separator />
 
-                <Field label="Status do projeto">
-                  <SelectField name="status" defaultValue={project.status}>
-                    <option value="active">Ativo</option>
-                    <option value="paused">Pausado</option>
-                    <option value="completed">Concluído</option>
-                  </SelectField>
-                </Field>
+      <MembrosField
+        members={members}
+        onAdd={handleAddMember}
+        onRemove={handleRemoveMember}
+        hint="Adicionar e remover membros vale na hora, sem passar pelo botão Salvar. Parentesco e cônjuges são definidos na tela do mentor."
+        disabled={isPending}
+      />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Início">
-                    <TextField
-                      name="start_date"
-                      type="date"
-                      defaultValue={project.startDate ?? ""}
-                    />
-                  </Field>
-                  <Field label="Término">
-                    <TextField
-                      name="end_date"
-                      type="date"
-                      defaultValue={project.endDate ?? ""}
-                    />
-                  </Field>
-                </div>
+      <Separator />
 
-                <Field label="Duração (meses)">
-                  <TextField
-                    name="duration_months"
-                    type="number"
-                    min={1}
-                    defaultValue={project.durationMonths ?? ""}
-                  />
-                </Field>
-              </>
-            ) : (
-              // Sem projeto a família não recebe ninguém, e criar um é feito na
-              // tela da família — aqui só o aviso.
-              <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
-                Esta família não tem projeto. Sem um projeto, não é possível vincular
-                mentorados nem mentores. Crie um na tela da família.
-              </p>
-            )}
+      <Field label="História">
+        <TextAreaField name="history" rows={4} defaultValue={overview.family.history} />
+      </Field>
 
-            <Separator />
+      <Field label="Missão">
+        <TextAreaField name="mission" rows={3} defaultValue={overview.family.mission} />
+      </Field>
 
-            <Field label="História">
-              <TextAreaField name="history" rows={4} defaultValue={overview.family.history} />
-            </Field>
+      <Field label="Visão">
+        <TextAreaField name="vision" rows={3} defaultValue={overview.family.vision} />
+      </Field>
 
-            <Field label="Missão">
-              <TextAreaField name="mission" rows={3} defaultValue={overview.family.mission} />
-            </Field>
+      <Field label="Valores">
+        <TextAreaField name="values" rows={3} defaultValue={overview.family.values} />
+      </Field>
 
-            <Field label="Visão">
-              <TextAreaField name="vision" rows={3} defaultValue={overview.family.vision} />
-            </Field>
-
-            <Field label="Valores">
-              <TextAreaField name="values" rows={3} defaultValue={overview.family.values} />
-            </Field>
-
-            <div className="flex items-center gap-2 pt-2">
-              <Button type="submit" size="lg" disabled={isPending}>
-                {isPending ? "Salvando…" : "Salvar"}
-              </Button>
-              <SheetClose render={<Button variant="ghost" size="lg" />}>Cancelar</SheetClose>
-            </div>
-          </form>
-        )}
-      </SheetContent>
-    </Sheet>
+      <div className="flex items-center gap-2 pt-2">
+        <Button type="submit" size="lg" disabled={isPending}>
+          {isPending ? "Salvando…" : "Salvar"}
+        </Button>
+        <SheetClose render={<Button variant="ghost" size="lg" />}>Cancelar</SheetClose>
+      </div>
+    </form>
   );
 }

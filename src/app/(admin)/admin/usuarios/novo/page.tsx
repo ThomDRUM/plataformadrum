@@ -4,7 +4,7 @@ import { LinkButton } from "@/components/ui/link-button";
 import { NovoUsuarioForm } from "../_components/novo-usuario-form";
 
 export default async function NovoUsuarioPage() {
-  const { trails, families } = await listUserFormOptions();
+  const { trails, families, mentors, students } = await listUserFormOptions();
 
   return (
     <div className="max-w-3xl">
@@ -18,6 +18,8 @@ export default async function NovoUsuarioPage() {
       <NovoUsuarioForm
         trails={trails}
         families={families}
+        mentors={mentors}
+        students={students}
         className="max-w-lg"
         cancel={
           <LinkButton href="/admin/usuarios" variant="ghost" size="lg">

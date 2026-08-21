@@ -132,10 +132,23 @@ export async function listUsers(): Promise<AdminUserRow[]> {
 export async function listUserFormOptions() {
   const supabase = await readClient();
 
-  const [{ data: trails }, { data: families }] = await Promise.all([
+  const [{ data: trails }, { data: families }, { data: profiles }] = await Promise.all([
     supabase.from("trails").select("id, title, trail_type").order("title"),
     supabase.from("families").select("id, name, projects(id)").order("name"),
+    supabase
+      .from("profiles")
+      .select("id, full_name, role, project_id")
+      .in("role", ["student", "mentor"])
+      .order("full_name"),
   ]);
+
+  // Uma família pode ter mais de um projeto, então o mapa é projeto → família.
+  const familyByProject = new Map<string, string>();
+  for (const family of families ?? []) {
+    for (const project of (family.projects as { id: string }[] | null) ?? []) {
+      familyByProject.set(project.id, family.name);
+    }
+  }
 
   return {
     trails: trails ?? [],
@@ -144,6 +157,21 @@ export async function listUserFormOptions() {
       name: f.name,
       projectId: (f.projects as { id: string }[] | null)?.[0]?.id ?? null,
     })),
+    mentors: (profiles ?? [])
+      .filter((p) => p.role === "mentor")
+      .map((p) => ({ id: p.id, fullName: p.full_name })),
+    /**
+     * Mentorados com o projeto a que pertencem: é o projeto — não a pessoa — que
+     * recebe o mentor, então quem está sem família não pode ser vinculado ainda.
+     */
+    students: (profiles ?? [])
+      .filter((p) => p.role === "student")
+      .map((p) => ({
+        id: p.id,
+        fullName: p.full_name,
+        projectId: p.project_id,
+        familyName: p.project_id ? familyByProject.get(p.project_id) ?? null : null,
+      })),
   };
 }
 

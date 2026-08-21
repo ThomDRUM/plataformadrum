@@ -16,6 +16,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { initials } from "@/lib/utils";
 
 export interface VinculoItem {
   /** Chave da linha — pode ser o id do vínculo, não da pessoa. */
@@ -165,13 +166,4 @@ export function VinculoPanel({
       </FrameFooter>
     </Frame>
   );
-}
-
-/** Primeiro e último nome — "Verônica Saratani Huang" vira "VH". */
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 0) return "?";
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (first + last).toUpperCase();
 }

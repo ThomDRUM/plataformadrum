@@ -14,7 +14,12 @@ export default async function UsuariosPage() {
   });
 
   const novoUsuario = (
-    <NovoUsuarioSheet trails={formOptions.trails} families={formOptions.families} />
+    <NovoUsuarioSheet
+      trails={formOptions.trails}
+      families={formOptions.families}
+      mentors={formOptions.mentors}
+      students={formOptions.students}
+    />
   );
 
   return (

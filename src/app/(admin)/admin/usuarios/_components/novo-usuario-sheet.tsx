@@ -19,9 +19,16 @@ import { NovoUsuarioForm } from "./novo-usuario-form";
 interface Props {
   trails: { id: string; title: string; trail_type: string }[];
   families: { id: string; name: string; projectId: string | null }[];
+  mentors: { id: string; fullName: string }[];
+  students: {
+    id: string;
+    fullName: string;
+    projectId: string | null;
+    familyName: string | null;
+  }[];
 }
 
-export function NovoUsuarioSheet({ trails, families }: Props) {
+export function NovoUsuarioSheet({ trails, families, mentors, students }: Props) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -46,6 +53,8 @@ export function NovoUsuarioSheet({ trails, families }: Props) {
         <NovoUsuarioForm
           trails={trails}
           families={families}
+          mentors={mentors}
+          students={students}
           className="p-4"
           onCreated={() => setOpen(false)}
           cancel={
