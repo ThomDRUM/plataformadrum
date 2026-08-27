@@ -14,11 +14,16 @@ import {
   FrameTitle,
 } from "@/components/reui/frame";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type FamilyField = "name" | "business_name" | "history" | "mission" | "vision" | "values";
 
 interface Props {
   familyId: string;
+  /** Chamado depois de gravar — o dialog de detalhe usa para recarregar. */
+  onSaved?: () => void;
+  /** Solta a coluna de leitura: a tela mantém `max-w-2xl`, o dialog usa a largura toda. */
+  className?: string;
   family: {
     name: string;
     business_name: string;
@@ -36,7 +41,7 @@ const LONG_FIELDS: { field: FamilyField; label: string }[] = [
   { field: "values", label: "Valores" },
 ];
 
-export function DadosTab({ familyId, family }: Props) {
+export function DadosTab({ familyId, family, onSaved, className }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [values, setValues] = useState(family);
@@ -50,6 +55,7 @@ export function DadosTab({ familyId, family }: Props) {
       }
       toast.success("Salvo.");
       router.refresh();
+      onSaved?.();
     });
   }
 
@@ -62,7 +68,7 @@ export function DadosTab({ familyId, family }: Props) {
   );
 
   return (
-    <div className="max-w-2xl">
+    <div className={cn("max-w-2xl", className)}>
       <Frame spacing="sm">
         <FrameHeader>
           <FrameTitle>Dados da família</FrameTitle>

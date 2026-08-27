@@ -1,8 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 
+import {
+  fetchFamilyFullDetail,
+  type FamilyFullDetail,
+} from "@/lib/actions/admin/families";
 import type { AdminFamilyRow } from "@/lib/admin/queries";
 import { PROJECT_STATUS_LABEL } from "@/lib/admin/types";
 import {
@@ -15,6 +18,7 @@ import {
 import { Frame, FramePanel } from "@/components/reui/frame";
 import { ProjectStatusBadge } from "@/components/admin/status-badge";
 import { FamiliaAcoes } from "./familia-acoes";
+import { FamiliaDetalheDialog } from "./familia-detalhe-dialog";
 import {
   Table,
   TableBody,
@@ -53,6 +57,29 @@ export function FamiliasTable({
 }) {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState(() => emptyFilters(FILTER_GROUPS));
+  const [detailFamily, setDetailFamily] = useState<AdminFamilyRow | null>(null);
+  const [detail, setDetail] = useState<FamilyFullDetail | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  /**
+   * Busca no clique, não no `onOpenChange` do dialog: o `open` é controlado
+   * de fora (por `detailFamily`), então o callback do dialog só dispara em
+   * fechamentos internos (Esc, clique no overlay) — nunca na abertura.
+   */
+  function loadDetail(familyId: string) {
+    setDetailError(null);
+
+    fetchFamilyFullDetail(familyId).then((result) => {
+      if (result.ok) setDetail(result.data);
+      else setDetailError(result.error);
+    });
+  }
+
+  function handleShowDetail(family: AdminFamilyRow) {
+    setDetailFamily(family);
+    setDetail(null);
+    loadDetail(family.id);
+  }
 
   const visible = useMemo(() => {
     const term = normalize(search.trim());
@@ -109,12 +136,13 @@ export function FamiliasTable({
                   return (
                     <TableRow key={family.id}>
                       <TableCell className="font-medium">
-                        <Link
-                          href={`/admin/familias/${family.id}`}
-                          className="hover:text-primary transition-colors"
+                        <button
+                          type="button"
+                          onClick={() => handleShowDetail(family)}
+                          className="text-left hover:text-primary transition-colors"
                         >
                           {family.name}
-                        </Link>
+                        </button>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {family.businessName || "—"}
@@ -139,6 +167,19 @@ export function FamiliasTable({
           </Table>
         </FramePanel>
       </Frame>
+
+      {detailFamily && (
+        <FamiliaDetalheDialog
+          family={detailFamily}
+          detail={detail}
+          error={detailError}
+          onSaved={() => loadDetail(detailFamily.id)}
+          open={detailFamily !== null}
+          onOpenChange={(open) => {
+            if (!open) setDetailFamily(null);
+          }}
+        />
+      )}
     </>
   );
 }

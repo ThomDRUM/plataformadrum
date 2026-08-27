@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/admin";
-import { getFamilyOverview, type FamilyOverview } from "@/lib/admin/queries";
+import {
+  getFamilyDetail,
+  getFamilyOverview,
+  type FamilyOverview,
+} from "@/lib/admin/queries";
 import type { ActionResult } from "@/lib/admin/types";
 import { initials } from "@/lib/utils";
 
@@ -248,6 +252,26 @@ export async function fetchFamilyOverview(
     const overview = await getFamilyOverview(familyId);
     if (!overview) return { ok: false, error: "Família não encontrada." };
     return { ok: true, data: overview };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export type FamilyFullDetail = NonNullable<Awaited<ReturnType<typeof getFamilyDetail>>>;
+
+/**
+ * Tudo que a tela `/admin/familias/[id]` mostra (família, projetos, vínculos e
+ * a lista de perfis dos selects), num único fetch — alimenta o dialog de
+ * detalhe aberto a partir da listagem, que reaproveita as abas daquela tela.
+ */
+export async function fetchFamilyFullDetail(
+  familyId: string
+): Promise<ActionResult<FamilyFullDetail>> {
+  try {
+    await assertAdmin();
+    const detail = await getFamilyDetail(familyId);
+    if (!detail) return { ok: false, error: "Família não encontrada." };
+    return { ok: true, data: detail };
   } catch (error) {
     return fail(error);
   }

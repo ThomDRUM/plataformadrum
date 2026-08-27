@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { EllipsisVerticalIcon, InfoIcon, PencilIcon, TrashIcon } from "lucide-react";
+import { EllipsisVerticalIcon, PencilIcon, TrashIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteFamily, fetchFamilyOverview } from "@/lib/actions/admin/families";
@@ -27,18 +27,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EditarFamiliaSheet } from "./editar-familia-sheet";
-import { FamiliaInfoDialog } from "./familia-info-dialog";
 
 export function FamiliaAcoes({ family }: { family: AdminFamilyRow }) {
   const router = useRouter();
-  const [showingInfo, setShowingInfo] = useState(false);
   const [overview, setOverview] = useState<FamilyOverview | null | undefined>(undefined);
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   /**
-   * Dialog e sheet trabalham sobre o retrato completo, que a listagem não
+   * O sheet de edição trabalha sobre o retrato completo, que a listagem não
    * carrega. Buscado na abertura — no handler, não num effect, e sempre de novo
    * para não mostrar um valor velho depois de um salvamento.
    */
@@ -48,11 +46,6 @@ export function FamiliaAcoes({ family }: { family: AdminFamilyRow }) {
     return fetchFamilyOverview(family.id).then((result) => {
       setOverview(result.ok ? result.data : null);
     });
-  }
-
-  function handleShowInfo() {
-    setShowingInfo(true);
-    loadOverview();
   }
 
   function handleEdit() {
@@ -85,10 +78,6 @@ export function FamiliaAcoes({ family }: { family: AdminFamilyRow }) {
 
         <DropdownMenuContent className="w-48" align="end">
           <DropdownMenuGroup>
-            <DropdownMenuItem onClick={handleShowInfo}>
-              <InfoIcon aria-hidden="true" />
-              Informações
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={handleEdit}>
               <PencilIcon aria-hidden="true" />
               Editar
@@ -106,13 +95,6 @@ export function FamiliaAcoes({ family }: { family: AdminFamilyRow }) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <FamiliaInfoDialog
-        family={family}
-        overview={overview}
-        open={showingInfo}
-        onOpenChange={setShowingInfo}
-      />
 
       <EditarFamiliaSheet
         familyName={family.name}

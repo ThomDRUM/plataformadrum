@@ -24,9 +24,17 @@ interface Props {
   students: { id: string; full_name: string; student_type: string | null }[];
   mentorLinks: { id: string; mentorId: string; projectId: string; name: string }[];
   allProfiles: Profile[];
+  /** Chamado depois de gravar — o dialog de detalhe usa para recarregar. */
+  onSaved?: () => void;
 }
 
-export function PessoasTab({ projects, students, mentorLinks, allProfiles }: Props) {
+export function PessoasTab({
+  projects,
+  students,
+  mentorLinks,
+  allProfiles,
+  onSaved,
+}: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [studentToAdd, setStudentToAdd] = useState("");
@@ -43,6 +51,7 @@ export function PessoasTab({ projects, students, mentorLinks, allProfiles }: Pro
       }
       toast.success(successMessage);
       router.refresh();
+      onSaved?.();
     });
   }
 

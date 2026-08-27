@@ -172,24 +172,6 @@ export async function updateUserProfile(
   }
 }
 
-/**
- * E-mail vive em `auth.users`, fora de `profiles`, então a listagem não o traz.
- * O dialog de informações busca sob demanda — uma chamada por abertura, em vez
- * de um `listUsers` do Auth (paginado) para carregar a tabela inteira.
- */
-export async function fetchUserEmail(
-  userId: string
-): Promise<ActionResult<{ email: string | null }>> {
-  try {
-    const { db } = await assertAdmin();
-    const { data, error } = await db.auth.admin.getUserById(userId);
-    if (error) return { ok: false, error: error.message };
-    return { ok: true, data: { email: data.user?.email ?? null } };
-  } catch (error) {
-    return fail(error);
-  }
-}
-
 export type UserFullDetail = NonNullable<Awaited<ReturnType<typeof getUserDetail>>> & {
   modules: Awaited<ReturnType<typeof getUserModuleAccess>>;
   email: string | null;

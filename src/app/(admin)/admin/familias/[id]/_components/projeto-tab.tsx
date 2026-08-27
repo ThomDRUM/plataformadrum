@@ -15,6 +15,7 @@ import {
   FrameTitle,
 } from "@/components/reui/frame";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface Project {
   id: string;
@@ -28,9 +29,13 @@ interface Project {
 interface Props {
   familyId: string;
   projects: Project[];
+  /** Chamado depois de gravar — o dialog de detalhe usa para recarregar. */
+  onSaved?: () => void;
+  /** Solta a coluna de leitura: a tela mantém `max-w-2xl`, o dialog usa a largura toda. */
+  className?: string;
 }
 
-export function ProjetoTab({ familyId, projects }: Props) {
+export function ProjetoTab({ familyId, projects, onSaved, className }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +63,7 @@ export function ProjetoTab({ familyId, projects }: Props) {
       }
       toast.success("Projeto atualizado.");
       router.refresh();
+      onSaved?.();
     });
   }
 
@@ -71,11 +77,12 @@ export function ProjetoTab({ familyId, projects }: Props) {
       setNewName("");
       toast.success("Projeto criado.");
       router.refresh();
+      onSaved?.();
     });
   }
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className={cn("max-w-2xl space-y-4", className)}>
       <FormError message={error} />
 
       {projects.length === 0 && (
