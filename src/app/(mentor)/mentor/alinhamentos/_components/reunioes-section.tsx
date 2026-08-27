@@ -1,21 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Plus, Trash2, Check, Pencil } from "lucide-react";
+import { Frame, FrameHeader, FrameTitle, FrameDescription, FramePanel } from "@/components/reui/frame";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { saveMeeting, deleteMeeting } from "@/lib/actions/mentor";
 import { TIPO_OPTIONS } from "@/lib/mentor/alinhamentos";
-
-interface Meeting {
-  id: string;
-  name: string;
-  meeting_date: string | null;
-  tipo: string | null;
-  participantes: string | null;
-  proposito: string | null;
-  perguntas_principais: string | null;
-  notes: string | null;
-}
+import type { Meeting } from "@/lib/mentor/reunioes";
 
 interface Draft {
   name: string;
@@ -30,6 +24,10 @@ interface Draft {
 const EMPTY_DRAFT: Draft = {
   name: "", meeting_date: "", tipo: "", participantes: "", proposito: "", perguntas_principais: "", notas: "",
 };
+
+const SELECT_CLASS =
+  "w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none " +
+  "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 function formatDateBR(iso: string | null): string {
   if (!iso) return "—";
@@ -62,42 +60,39 @@ function draftToMeeting(id: string, draft: Draft): Meeting {
   };
 }
 
-function MeetingForm({ draft, onChange, onSave, onCancel, saveDisabled }: {
+function MeetingForm({
+  draft, onChange, onSave, onCancel, saveDisabled, pending,
+}: {
   draft: Draft;
   onChange: (d: Draft) => void;
   onSave: () => void;
   onCancel: () => void;
   saveDisabled: boolean;
+  pending: boolean;
 }) {
   return (
-    <div className="border border-border rounded-lg p-4 space-y-3">
+    <div className="space-y-3 rounded-lg border border-border p-4">
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Nome</p>
-          <input
-            value={draft.name}
-            onChange={(e) => onChange({ ...draft, name: e.target.value })}
-            autoFocus
-            className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Nome</p>
+          <Input value={draft.name} onChange={(e) => onChange({ ...draft, name: e.target.value })} autoFocus />
         </div>
-        <div className="space-y-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Data</p>
-          <input
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Data</p>
+          <Input
             type="date"
             value={draft.meeting_date}
             onChange={(e) => onChange({ ...draft, meeting_date: e.target.value })}
-            className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
       </div>
 
-      <div className="space-y-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tipo</p>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Tipo</p>
         <select
           value={draft.tipo}
           onChange={(e) => onChange({ ...draft, tipo: e.target.value })}
-          className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          className={SELECT_CLASS}
         >
           <option value="">Selecione...</option>
           {TIPO_OPTIONS.map((t) => (
@@ -106,58 +101,52 @@ function MeetingForm({ draft, onChange, onSave, onCancel, saveDisabled }: {
         </select>
       </div>
 
-      <div className="space-y-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Participantes</p>
-        <input
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Participantes</p>
+        <Input
           value={draft.participantes}
           onChange={(e) => onChange({ ...draft, participantes: e.target.value })}
           placeholder="Opcional"
-          className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
         />
       </div>
 
-      <div className="space-y-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Propósito</p>
-        <textarea
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Propósito</p>
+        <Textarea
           value={draft.proposito}
           onChange={(e) => onChange({ ...draft, proposito: e.target.value })}
           rows={2}
           placeholder="Opcional"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
         />
       </div>
 
-      <div className="space-y-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Perguntas principais</p>
-        <textarea
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Perguntas principais</p>
+        <Textarea
           value={draft.perguntas_principais}
           onChange={(e) => onChange({ ...draft, perguntas_principais: e.target.value })}
           rows={2}
           placeholder="Opcional"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
         />
       </div>
 
-      <div className="space-y-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Notas</p>
-        <textarea
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">Notas</p>
+        <Textarea
           value={draft.notas}
           onChange={(e) => onChange({ ...draft, notas: e.target.value })}
           rows={2}
           placeholder="Opcional"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
         />
       </div>
 
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onSave}
-          disabled={saveDisabled}
-          className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-foreground text-background rounded-md hover:bg-foreground/90 transition-colors disabled:opacity-50"
-        >
-          <Check className="w-3 h-3" /> Salvar
-        </button>
-        <button onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+      <div className="flex items-center gap-2">
+        <Button type="button" size="sm" disabled={saveDisabled || pending} onClick={onSave}>
+          <Check /> Salvar
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+          Cancelar
+        </Button>
       </div>
     </div>
   );
@@ -170,6 +159,7 @@ export function ReunioesSection({ projectId, meetings: initialMeetings }: { proj
   const [draft, setDraft] = useState<Draft | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   function startCreate() {
     setCreating(true);
@@ -187,117 +177,180 @@ export function ReunioesSection({ projectId, meetings: initialMeetings }: { proj
     setDraft(null);
   }
 
-  async function saveForm() {
+  function saveForm() {
     if (!draft || !draft.name.trim() || !draft.meeting_date || !draft.tipo) return;
-    const result = await saveMeeting(projectId, editingId, {
-      name: draft.name.trim(),
-      meeting_date: draft.meeting_date,
-      tipo: draft.tipo,
-      participantes: draft.participantes,
-      proposito: draft.proposito,
-      perguntas_principais: draft.perguntas_principais,
-      notas: draft.notas,
-    });
-    if (editingId) {
-      setMeetings((prev) =>
-        prev
-          .map((m) => (m.id === editingId ? draftToMeeting(editingId, draft) : m))
-          .sort((a, b) => (b.meeting_date ?? "").localeCompare(a.meeting_date ?? ""))
-      );
-    } else if (result) {
-      setMeetings((prev) =>
-        [...prev, draftToMeeting(result.id, draft)].sort((a, b) => (b.meeting_date ?? "").localeCompare(a.meeting_date ?? ""))
-      );
-    }
+    const wasEditing = editingId;
+    const currentDraft = draft;
     cancelForm();
+
+    startTransition(async () => {
+      const result = await saveMeeting(projectId, wasEditing, {
+        name: currentDraft.name.trim(),
+        meeting_date: currentDraft.meeting_date,
+        tipo: currentDraft.tipo,
+        participantes: currentDraft.participantes,
+        proposito: currentDraft.proposito,
+        perguntas_principais: currentDraft.perguntas_principais,
+        notas: currentDraft.notas,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        if (wasEditing) setEditingId(wasEditing);
+        else setCreating(true);
+        setDraft(currentDraft);
+        return;
+      }
+      if (wasEditing) {
+        setMeetings((prev) =>
+          prev
+            .map((m) => (m.id === wasEditing ? draftToMeeting(wasEditing, currentDraft) : m))
+            .sort((a, b) => (b.meeting_date ?? "").localeCompare(a.meeting_date ?? ""))
+        );
+      } else {
+        setMeetings((prev) =>
+          [...prev, draftToMeeting(result.data.id, currentDraft)].sort(
+            (a, b) => (b.meeting_date ?? "").localeCompare(a.meeting_date ?? "")
+          )
+        );
+      }
+      toast.success("Reunião salva.");
+    });
   }
 
-  async function confirmDelete(id: string) {
-    await deleteMeeting(id);
-    setMeetings((prev) => prev.filter((m) => m.id !== id));
+  function confirmDelete(id: string) {
+    const prev = meetings;
+    setMeetings((p) => p.filter((m) => m.id !== id));
     setDeleteCandidate(null);
     if (openId === id) setOpenId(null);
+
+    startTransition(async () => {
+      const result = await deleteMeeting(id);
+      if (!result.ok) {
+        setMeetings(prev);
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Reunião removida.");
+    });
   }
 
   return (
-    <section className="space-y-4">
-      <h2 className="text-xl font-semibold tracking-tight text-foreground">Reuniões de Alinhamento</h2>
+    <Frame spacing="sm">
+      <FrameHeader>
+        <FrameTitle>Reuniões de Alinhamento</FrameTitle>
+        <FrameDescription>Encontros marcados com a família ao longo do processo.</FrameDescription>
+      </FrameHeader>
+      <FramePanel>
+        <div className="space-y-2">
+          {meetings.map((m) => {
+            const isOpen = openId === m.id;
+            const isEditing = editingId === m.id;
 
-      <div className="space-y-2 max-w-2xl">
-        {meetings.map((m) => {
-          const isOpen = openId === m.id;
-          const isEditing = editingId === m.id;
+            if (isEditing && draft) {
+              return (
+                <MeetingForm
+                  key={m.id}
+                  draft={draft}
+                  onChange={setDraft}
+                  onSave={saveForm}
+                  onCancel={cancelForm}
+                  saveDisabled={!draft.name.trim() || !draft.meeting_date || !draft.tipo}
+                  pending={isPending}
+                />
+              );
+            }
 
-          if (isEditing && draft) {
             return (
-              <MeetingForm
-                key={m.id}
-                draft={draft}
-                onChange={setDraft}
-                onSave={saveForm}
-                onCancel={cancelForm}
-                saveDisabled={!draft.name.trim() || !draft.meeting_date || !draft.tipo}
-              />
-            );
-          }
-
-          return (
-            <div key={m.id} className="border border-border rounded-lg overflow-hidden">
-              <div className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
-                <button onClick={() => setOpenId(isOpen ? null : m.id)} className="flex-1 flex items-center gap-3 text-left">
-                  {isOpen ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
-                  <span className="text-sm font-medium text-foreground">{m.name}</span>
-                  {m.tipo && <span className="text-xs text-muted-foreground">{m.tipo}</span>}
-                  <span className="text-xs text-muted-foreground tabular-nums">{formatDateBR(m.meeting_date)}</span>
-                </button>
-                <button onClick={() => startEdit(m)} className="p-1 text-muted-foreground/30 hover:text-muted-foreground transition-colors" title="Editar">
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => setDeleteCandidate(m.id)} className="p-1 text-muted-foreground/30 hover:text-destructive transition-colors" title="Remover">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              {isOpen && (
-                <div className="px-4 pb-4 pt-1 border-t border-border space-y-2">
-                  <p className="text-xs text-muted-foreground"><span className="font-semibold text-foreground/70">Participantes: </span>{m.participantes || "—"}</p>
-                  <p className="text-xs text-muted-foreground leading-relaxed"><span className="font-semibold text-foreground/70">Propósito: </span>{m.proposito || "—"}</p>
-                  <p className="text-xs text-muted-foreground leading-relaxed"><span className="font-semibold text-foreground/70">Perguntas principais: </span>{m.perguntas_principais || "—"}</p>
-                  <p className="text-xs text-muted-foreground leading-relaxed"><span className="font-semibold text-foreground/70">Notas: </span>{m.notes || "—"}</p>
+              <div key={m.id} className="overflow-hidden rounded-lg border border-border">
+                <div className="flex w-full items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(isOpen ? null : m.id)}
+                    className="flex flex-1 items-center gap-3 text-left"
+                  >
+                    {isOpen ? (
+                      <ChevronUp className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="text-sm font-medium text-foreground">{m.name}</span>
+                    {m.tipo && <span className="text-xs text-muted-foreground">{m.tipo}</span>}
+                    <span className="text-xs text-muted-foreground tabular-nums">{formatDateBR(m.meeting_date)}</span>
+                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground/40 hover:text-muted-foreground"
+                    onClick={() => startEdit(m)}
+                  >
+                    <Pencil />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground/40 hover:text-destructive"
+                    onClick={() => setDeleteCandidate(m.id)}
+                  >
+                    <Trash2 />
+                  </Button>
                 </div>
-              )}
-              {deleteCandidate === m.id && (
-                <div className="px-4 pb-4 pt-1 border-t border-border bg-destructive/5 flex items-center justify-between gap-3">
-                  <p className="text-xs text-foreground">Tem certeza que quer remover esta reunião?</p>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button onClick={() => confirmDelete(m.id)} className="text-xs px-2.5 py-1 rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors">
-                      Remover
-                    </button>
-                    <button onClick={() => setDeleteCandidate(null)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                      Cancelar
-                    </button>
+                {isOpen && (
+                  <div className="space-y-2 border-t border-border px-4 pt-1 pb-4">
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground/70">Participantes: </span>
+                      {m.participantes || "—"}
+                    </p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      <span className="font-semibold text-foreground/70">Propósito: </span>
+                      {m.proposito || "—"}
+                    </p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      <span className="font-semibold text-foreground/70">Perguntas principais: </span>
+                      {m.perguntas_principais || "—"}
+                    </p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      <span className="font-semibold text-foreground/70">Notas: </span>
+                      {m.notes || "—"}
+                    </p>
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+                )}
+                {deleteCandidate === m.id && (
+                  <div className="flex items-center justify-between gap-3 border-t border-border bg-destructive/5 px-4 pt-1 pb-4">
+                    <p className="text-xs text-foreground">Tem certeza que quer remover esta reunião?</p>
+                    <div className="flex flex-shrink-0 items-center gap-2">
+                      <Button type="button" size="sm" variant="destructive" onClick={() => confirmDelete(m.id)}>
+                        Remover
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setDeleteCandidate(null)}>
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
-        {creating && draft && (
-          <MeetingForm
-            draft={draft}
-            onChange={setDraft}
-            onSave={saveForm}
-            onCancel={cancelForm}
-            saveDisabled={!draft.name.trim() || !draft.meeting_date || !draft.tipo}
-          />
-        )}
+          {creating && draft && (
+            <MeetingForm
+              draft={draft}
+              onChange={setDraft}
+              onSave={saveForm}
+              onCancel={cancelForm}
+              saveDisabled={!draft.name.trim() || !draft.meeting_date || !draft.tipo}
+              pending={isPending}
+            />
+          )}
 
-        {!creating && !editingId && (
-          <button onClick={startCreate} className={cn("flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1")}>
-            <Plus className="w-3.5 h-3.5" /> Nova reunião
-          </button>
-        )}
-      </div>
-    </section>
+          {!creating && !editingId && (
+            <Button type="button" variant="ghost" size="sm" onClick={startCreate} className="mt-1 text-muted-foreground">
+              <Plus /> Nova reunião
+            </Button>
+          )}
+        </div>
+      </FramePanel>
+    </Frame>
   );
 }
