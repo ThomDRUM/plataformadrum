@@ -166,7 +166,7 @@ export function MentorSidebar({ userName, familyName, ...props }: Props) {
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
+                <DropdownMenuItem variant="destructive" onClick={handleLogout}>
                   <LogOut />
                   Sair
                 </DropdownMenuItem>

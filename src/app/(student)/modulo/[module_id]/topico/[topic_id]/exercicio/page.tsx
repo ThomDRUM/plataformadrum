@@ -52,7 +52,7 @@ export default async function TopicExercisePage({
   const submitted = (answerRows ?? []).some((a) => a.submitted_at !== null);
 
   return (
-    <div className="-mx-10 -my-10 flex min-h-screen">
+    <div className="flex gap-10">
       <LearnSidebar
         moduleTitle={mod.title}
         moduleNumber={mod.orderIndex}
@@ -68,7 +68,7 @@ export default async function TopicExercisePage({
         moduleId={module_id}
       />
 
-      <main className="flex-1 ml-64 px-10 py-10 max-w-4xl">
+      <div className="min-w-0 flex-1 max-w-4xl">
         <ModuleSelector
           modules={modules.map((m) => ({ id: m.id, title: m.title, orderIndex: m.orderIndex, unlocked: m.unlocked }))}
           currentModuleId={module_id}
@@ -85,7 +85,7 @@ export default async function TopicExercisePage({
           submittedInitial={submitted}
           nextHref={nextTopicHref}
         />
-      </main>
+      </div>
     </div>
   );
 }

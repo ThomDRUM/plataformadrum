@@ -153,7 +153,7 @@ export function StudentSidebar({ userName, programName = "Minha Jornada", ...pro
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
+                <DropdownMenuItem variant="destructive" onClick={handleLogout}>
                   <LogOut />
                   Sair
                 </DropdownMenuItem>

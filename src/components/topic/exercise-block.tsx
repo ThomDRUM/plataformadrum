@@ -32,9 +32,13 @@ interface Props {
 export function ExerciseBlock({ userId, topicId, exercise, questions, initialAnswers, submittedInitial, nextHref }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);
+  const [savedAnswers, setSavedAnswers] = useState<Record<string, string>>(initialAnswers);
   const [submitted, setSubmitted] = useState(submittedInitial);
+  const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const locked = submitted && !editing;
 
   const allAnswered = useMemo(
     () => questions.every((q) => (answers[q.id] ?? "").trim().length > 0),
@@ -58,17 +62,13 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
   );
 
   function handleChange(questionId: string, value: string) {
-    if (submitted) return;
+    if (locked) return;
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
     if (timers.current[questionId]) clearTimeout(timers.current[questionId]);
     timers.current[questionId] = setTimeout(() => saveAnswer(questionId, value), 3000);
   }
 
-  async function handleSubmit() {
-    setSubmitting(true);
-    const supabase = createClient();
-    const now = new Date().toISOString();
-
+  async function persistAllAnswers(supabase: ReturnType<typeof createClient>, now: string) {
     for (const q of questions) {
       if (timers.current[q.id]) clearTimeout(timers.current[q.id]);
       await supabase.from("exercise_answers").upsert(
@@ -82,6 +82,14 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
         { onConflict: "question_id,user_id" }
       );
     }
+  }
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    const supabase = createClient();
+    const now = new Date().toISOString();
+
+    await persistAllAnswers(supabase, now);
 
     await supabase.from("user_topic_progress").upsert(
       {
@@ -93,8 +101,34 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
       { onConflict: "user_id,topic_id" }
     );
 
+    setSavedAnswers(answers);
     setSubmitted(true);
     setSubmitting(false);
+    router.refresh();
+  }
+
+  function handleStartEdit() {
+    setEditing(true);
+  }
+
+  function handleCancelEdit() {
+    for (const q of questions) {
+      if (timers.current[q.id]) clearTimeout(timers.current[q.id]);
+    }
+    setAnswers(savedAnswers);
+    setEditing(false);
+  }
+
+  async function handleSaveEdit() {
+    setSubmitting(true);
+    const supabase = createClient();
+    const now = new Date().toISOString();
+
+    await persistAllAnswers(supabase, now);
+
+    setSavedAnswers(answers);
+    setSubmitting(false);
+    setEditing(false);
     router.refresh();
   }
 
@@ -125,14 +159,14 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
               <textarea
                 value={answers[q.id] ?? ""}
                 onChange={(e) => handleChange(q.id, e.target.value)}
-                readOnly={submitted}
+                readOnly={locked}
                 placeholder="Escreva sua resposta..."
                 rows={4}
                 className={cn(
                   "w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm",
                   "placeholder:text-muted-foreground/50 resize-y",
                   "focus:outline-none focus:ring-1 focus:ring-ring",
-                  submitted && "bg-muted/30 text-muted-foreground cursor-default"
+                  locked && "bg-muted/30 text-muted-foreground cursor-default"
                 )}
               />
             </div>
@@ -140,23 +174,51 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
         </div>
 
         {submitted ? (
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              disabled
-              className="px-4 py-2 rounded-md text-sm font-medium bg-muted text-muted-foreground cursor-not-allowed"
-            >
-              Exercício enviado
-            </button>
-            {nextHref && (
-              <Link
-                href={nextHref}
-                className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          editing ? (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveEdit}
+                disabled={submitting || !allAnswered}
+                className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
               >
-                Próximo →
-              </Link>
-            )}
-          </div>
+                Salvar alterações
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                disabled={submitting}
+                className="px-4 py-2 rounded-md text-sm font-medium border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled
+                className="px-4 py-2 rounded-md text-sm font-medium bg-muted text-muted-foreground cursor-not-allowed"
+              >
+                Exercício enviado
+              </button>
+              <button
+                type="button"
+                onClick={handleStartEdit}
+                className="px-4 py-2 rounded-md text-sm font-medium border border-border text-foreground hover:bg-muted transition-colors"
+              >
+                Editar resposta
+              </button>
+              {nextHref && (
+                <Link
+                  href={nextHref}
+                  className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  Próximo →
+                </Link>
+              )}
+            </div>
+          )
         ) : (
           allAnswered && (
             <button
