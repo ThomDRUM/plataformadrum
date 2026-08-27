@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionProfile } from "@/lib/auth/session";
 import { getStudentAccessData } from "@/lib/student/access";
+import { isTopicDone } from "@/lib/student/topic-status";
 
 export default async function AprenderEntryPage() {
   const supabase = await createClient();
@@ -19,7 +20,7 @@ export default async function AprenderEntryPage() {
 
   for (const mod of unlockedModules) {
     const topics = topicsByModule.get(mod.id) ?? [];
-    const incomplete = topics.find((t) => getTopicStatus(t.id) !== "completed");
+    const incomplete = topics.find((t) => !isTopicDone(getTopicStatus(t.id)));
     if (incomplete) redirect(`/modulo/${mod.id}/topico/${incomplete.id}`);
   }
 

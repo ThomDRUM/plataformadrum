@@ -16,8 +16,8 @@ export default async function TopicExercisePage({
   const profile = await getSessionProfile();
   if (!profile?.trailId) redirect("/");
 
-  const { modules, mod, topics, hasExercise, topicHasExercise, nextTopicHref, getTopicStatus } =
-    await getTopicNavContext(supabase, profile.id, profile.trailId, module_id, topic_id);
+  const { modules, mod, topics, hasExercise, topicHasExercise, nextStepHref, getTopicStatus } =
+    await getTopicNavContext(supabase, profile.id, profile.trailId, module_id, topic_id, "exercicio");
 
   if (!topicHasExercise) redirect(`/modulo/${module_id}/topico/${topic_id}`);
 
@@ -83,7 +83,7 @@ export default async function TopicExercisePage({
             [...answersMap.entries()].map(([qid, a]) => [qid, a.answer_text ?? ""])
           )}
           submittedInitial={submitted}
-          nextHref={nextTopicHref}
+          nextHref={nextStepHref}
         />
       </div>
     </div>

@@ -16,8 +16,8 @@ export default async function TopicOverviewPage({
   const profile = await getSessionProfile();
   if (!profile?.trailId) redirect("/");
 
-  const { modules, mod, topics, previousTopic, nextTopic, isLastTopic, hasExercise, getTopicStatus } =
-    await getTopicNavContext(supabase, profile.id, profile.trailId, module_id, topic_id);
+  const { modules, mod, topics, hasExercise, getTopicStatus, previousStepNav, nextStepNav } =
+    await getTopicNavContext(supabase, profile.id, profile.trailId, module_id, topic_id, "overview");
 
   const { data: topic } = await supabase
     .from("topics")
@@ -79,12 +79,7 @@ export default async function TopicOverviewPage({
           )}
         </div>
 
-        <TopicFooterNav
-          moduleId={module_id}
-          previousTopicId={previousTopic?.id ?? null}
-          nextTopicId={nextTopic?.id ?? null}
-          isLastTopic={isLastTopic}
-        />
+        <TopicFooterNav previous={previousStepNav} next={nextStepNav} />
       </div>
     </div>
   );

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { FormattedText } from "@/components/topic/formatted-text";
@@ -75,7 +76,9 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
         {
           user_id: userId,
           question_id: q.id,
-          answer_text: answers[q.id] ?? "",
+          // Sem o trim, uma resposta só de espaços passaria por preenchida no
+          // cálculo do status do tópico.
+          answer_text: (answers[q.id] ?? "").trim(),
           submitted_at: now,
           updated_at: now,
         },
@@ -179,7 +182,7 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
               <button
                 type="button"
                 onClick={handleSaveEdit}
-                disabled={submitting || !allAnswered}
+                disabled={submitting}
                 className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
               >
                 Salvar alterações
@@ -198,9 +201,15 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
               <button
                 type="button"
                 disabled
-                className="px-4 py-2 rounded-md text-sm font-medium bg-muted text-muted-foreground cursor-not-allowed"
+                className={cn(
+                  "px-4 py-2 rounded-md text-sm font-medium cursor-not-allowed inline-flex items-center gap-1.5",
+                  allAnswered
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-amber-50 text-amber-700 border border-amber-200"
+                )}
               >
-                Exercício enviado
+                {!allAnswered && <CircleAlert className="w-3.5 h-3.5" />}
+                {allAnswered ? "Exercício enviado" : "Enviado com respostas em branco"}
               </button>
               <button
                 type="button"
@@ -220,16 +229,25 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
             </div>
           )
         ) : (
-          allAnswered && (
+          <div className="space-y-3">
+            {!allAnswered && (
+              <p className="inline-flex items-start gap-1.5 text-xs text-amber-700">
+                <CircleAlert className="w-3.5 h-3.5 mt-px flex-shrink-0" />
+                <span>
+                  Você pode enviar assim mesmo — o tópico fica marcado como enviado com
+                  respostas em branco, e dá para completar depois.
+                </span>
+              </p>
+            )}
             <button
               type="button"
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full sm:w-auto px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
+              className="block w-full sm:w-auto px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
             >
               Enviar exercício
             </button>
-          )
+          </div>
         )}
       </div>
     </div>

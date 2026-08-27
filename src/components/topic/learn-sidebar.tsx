@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ArrowLeft, BookOpen, ClipboardList, Circle, CircleDot, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, BookOpen, ClipboardList, Circle, CircleDot, CircleAlert, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { TopicStatus } from "@/lib/student/access";
+import { isTopicDone, type TopicStatus } from "@/lib/student/topic-status";
 
 export type TopicViewState = "overview" | "repertorio" | "exercicio";
 
@@ -26,7 +26,23 @@ interface Props {
   hideStatus?: boolean;
 }
 
-function SubItemStatusIcon({ done, active }: { done: boolean; active: boolean }) {
+function SubItemStatusIcon({
+  done,
+  active,
+  warning,
+}: {
+  done: boolean;
+  active: boolean;
+  warning?: boolean;
+}) {
+  if (warning) {
+    return (
+      <CircleAlert
+        className="w-3 h-3 text-amber-500 flex-shrink-0"
+        aria-label="Enviado com respostas em branco"
+      />
+    );
+  }
   if (done) return <CheckCircle2 className="w-3 h-3 text-emerald-600 flex-shrink-0" />;
   if (active) return <CircleDot className="w-3 h-3 text-sky-600 flex-shrink-0" />;
   return <Circle className="w-3 h-3 text-muted-foreground/30 flex-shrink-0" />;
@@ -59,7 +75,8 @@ export function LearnSidebar({
             const isCurrentTopic = t.id === currentTopicId;
             const topicHref = `${baseHref}/${moduleId}/topico/${t.id}`;
             const repertoireDone = t.status !== "not_started";
-            const exerciseDone = t.status === "completed";
+            const exerciseDone = isTopicDone(t.status);
+            const exerciseIncomplete = t.status === "completed_partial";
             const exerciseActive = t.status === "repertoire_viewed";
 
             const overviewActive = isCurrentTopic && activeState === "overview";
@@ -106,7 +123,13 @@ export function LearnSidebar({
                       )}
                     >
                       {!hideStatus && (
-                        <span className="mt-0.5"><SubItemStatusIcon done={exerciseDone} active={exerciseActive} /></span>
+                        <span className="mt-0.5">
+                          <SubItemStatusIcon
+                            done={exerciseDone}
+                            active={exerciseActive}
+                            warning={exerciseIncomplete}
+                          />
+                        </span>
                       )}
                       <ClipboardList className="w-3.5 h-3.5 mt-0.5 text-muted-foreground/50 flex-shrink-0" />
                       <span className="leading-snug">Exercício</span>

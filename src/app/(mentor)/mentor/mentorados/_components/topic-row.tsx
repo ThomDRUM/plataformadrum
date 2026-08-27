@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Circle, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, Circle, CircleAlert, ChevronDown, ChevronUp } from "lucide-react";
 import { saveMentorNote } from "@/lib/actions/mentor";
-import type { TopicStatus } from "@/lib/student/access";
+import { isTopicDone, type TopicStatus } from "@/lib/student/topic-status";
 
 interface QuestionData {
   id: string;
@@ -67,12 +67,18 @@ function QuestionBlock({ question, mentorId }: { question: QuestionData; mentorI
 
 export function TopicRow({ topic, mentorId, moduleOrderIndex }: { topic: TopicData; mentorId: string; moduleOrderIndex: number }) {
   const [showAnswers, setShowAnswers] = useState(false);
-  const canViewAnswers = topic.hasExercise && topic.status === "completed" && topic.exercise;
+  const canViewAnswers = topic.hasExercise && isTopicDone(topic.status) && topic.exercise;
+  const partial = topic.status === "completed_partial";
 
   return (
     <div className="rounded-md border border-border/60">
       <div className="flex items-center gap-2.5 px-3 py-2">
-        {topic.status === "completed" ? (
+        {partial ? (
+          <CircleAlert
+            className="w-3.5 h-3.5 text-amber-500 flex-shrink-0"
+            aria-label="Enviado com respostas em branco"
+          />
+        ) : topic.status === "completed" ? (
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
         ) : (
           <Circle className="w-3.5 h-3.5 text-muted-foreground/30 flex-shrink-0" />
@@ -85,7 +91,12 @@ export function TopicRow({ topic, mentorId, moduleOrderIndex }: { topic: TopicDa
             📖 {topic.repertoireViewed ? "Repertório visto" : "Repertório não visto"}
             {topic.hasExercise && (
               <>
-                {"   "}✏️ {topic.exerciseCompleted ? "Exercício enviado" : "Exercício pendente"}
+                {"   "}✏️{" "}
+                {topic.exerciseCompleted
+                  ? partial
+                    ? "Exercício enviado com respostas em branco"
+                    : "Exercício enviado"
+                  : "Exercício pendente"}
               </>
             )}
           </p>

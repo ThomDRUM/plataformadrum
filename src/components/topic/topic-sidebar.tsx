@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ArrowLeft, Circle, CircleDot, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Circle, CircleDot, CircleAlert, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { TopicStatus } from "@/lib/student/access";
+import type { TopicStatus } from "@/lib/student/topic-status";
 
 interface SidebarTopic {
   id: string;
@@ -23,6 +23,14 @@ interface Props {
 }
 
 function StatusIcon({ status }: { status: TopicStatus }) {
+  if (status === "completed_partial") {
+    return (
+      <CircleAlert
+        className="w-3.5 h-3.5 text-amber-500 flex-shrink-0"
+        aria-label="Enviado com respostas em branco"
+      />
+    );
+  }
   if (status === "completed") {
     return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />;
   }

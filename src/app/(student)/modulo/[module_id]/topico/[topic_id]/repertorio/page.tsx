@@ -16,8 +16,8 @@ export default async function TopicRepertoirePage({
   const profile = await getSessionProfile();
   if (!profile?.trailId) redirect("/");
 
-  const { modules, mod, topics, hasExercise, topicHasExercise, nextTopicHref, getTopicStatus } =
-    await getTopicNavContext(supabase, profile.id, profile.trailId, module_id, topic_id);
+  const { modules, mod, topics, hasExercise, topicHasExercise, nextStepHref, getTopicStatus } =
+    await getTopicNavContext(supabase, profile.id, profile.trailId, module_id, topic_id, "repertorio");
 
   const { data: repertoireItems } = await supabase
     .from("repertoire_items")
@@ -27,10 +27,6 @@ export default async function TopicRepertoirePage({
     .limit(1);
 
   const repertoireItem = repertoireItems?.[0] ?? null;
-
-  const nextHref = topicHasExercise
-    ? `/modulo/${module_id}/topico/${topic_id}/exercicio`
-    : nextTopicHref;
 
   return (
     <div className="flex gap-10">
@@ -60,7 +56,7 @@ export default async function TopicRepertoirePage({
           topicId={topic_id}
           item={repertoireItem}
           hasExercise={topicHasExercise}
-          nextHref={nextHref}
+          nextHref={nextStepHref}
         />
       </div>
     </div>
