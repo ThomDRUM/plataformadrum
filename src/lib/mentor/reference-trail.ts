@@ -1,6 +1,8 @@
 import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/database";
+import type { RepertoireItemData } from "@/components/topic/repertoire-block";
+import type { ExerciseData, QuestionData } from "@/components/topic/exercise-block";
 
 type Client = SupabaseClient<Database>;
 
@@ -9,32 +11,34 @@ export type ReferenceTrailType = "successor" | "succeeded";
 /** Trilhas de referência são conteúdo fixo — TTL alinhado ao staleTimes.dynamic. */
 const REFERENCE_TTL = 60;
 
-export interface ReferenceModule {
+export interface ReferenceTopicFull {
+  id: string;
+  title: string;
+  orderIndex: number;
+  learningObjective: string | null;
+  why: string | null;
+  repertoireItem: RepertoireItemData | null;
+  exercise: (ExerciseData & { questions: QuestionData[] }) | null;
+}
+
+export interface ReferenceModuleFull {
   id: string;
   title: string;
   intention: string | null;
   why: string | null;
   orderIndex: number;
-  topics: { id: string; title: string; orderIndex: number }[];
+  topics: ReferenceTopicFull[];
 }
 
-export interface ReferenceTrailData {
+export interface FullReferenceTrailData {
   trail: { id: string; title: string; intention: string | null; why: string | null };
-  modules: ReferenceModule[];
-  topicsWithExercise: Set<string>;
+  modules: ReferenceModuleFull[];
 }
 
-/** Forma serializável do resultado — `Set` não sobrevive ao cache, só arrays. */
-interface RawReferenceTrail {
-  trail: { id: string; title: string; intention: string | null; why: string | null };
-  modules: ReferenceModule[];
-  topicIdsWithExercise: string[];
-}
-
-async function fetchReferenceTrail(
+async function fetchFullReferenceTrail(
   supabase: Client,
   trailType: ReferenceTrailType
-): Promise<RawReferenceTrail | null> {
+): Promise<FullReferenceTrailData | null> {
   const trailsRes = await supabase
     .from("trails")
     .select("id, title, intention, why")
@@ -68,24 +72,60 @@ async function fetchReferenceTrail(
   const { data: topics } = moduleIds.length
     ? await supabase
         .from("topics")
-        .select("id, module_id, title, order_index")
+        .select("id, module_id, title, order_index, learning_objective, why")
         .in("module_id", moduleIds)
         .order("order_index")
     : { data: [] };
 
-  const topicsByModule = new Map<string, { id: string; title: string; orderIndex: number }[]>();
-  for (const t of topics ?? []) {
-    const list = topicsByModule.get(t.module_id) ?? [];
-    list.push({ id: t.id, title: t.title, orderIndex: t.order_index });
-    topicsByModule.set(t.module_id, list);
-  }
-
   const allTopics = topics ?? [];
   const topicIds = allTopics.map((t) => t.id);
 
-  const { data: exercises } = topicIds.length
-    ? await supabase.from("exercises").select("topic_id").in("topic_id", topicIds)
-    : { data: [] };
+  const [{ data: repertoireRows }, { data: exerciseRows }] = topicIds.length
+    ? await Promise.all([
+        supabase
+          .from("repertoire_items")
+          .select("id, topic_id, title, content_type, youtube_url, content_html")
+          .in("topic_id", topicIds)
+          .order("order_index"),
+        supabase
+          .from("exercises")
+          .select("id, topic_id, title, instructions, exercise_questions(id, question_text, order_index)")
+          .in("topic_id", topicIds)
+          .order("order_index"),
+      ])
+    : [{ data: [] }, { data: [] }];
+
+  const repertoireByTopic = new Map<string, RepertoireItemData>();
+  for (const r of repertoireRows ?? []) {
+    if (!repertoireByTopic.has(r.topic_id)) repertoireByTopic.set(r.topic_id, r);
+  }
+
+  const exerciseByTopic = new Map<string, ExerciseData & { questions: QuestionData[] }>();
+  for (const row of exerciseRows ?? []) {
+    if (exerciseByTopic.has(row.topic_id)) continue;
+    const questions = [...(row.exercise_questions ?? [])].sort((a, b) => a.order_index - b.order_index);
+    exerciseByTopic.set(row.topic_id, {
+      id: row.id,
+      title: row.title,
+      instructions: row.instructions,
+      questions,
+    });
+  }
+
+  const topicsByModule = new Map<string, ReferenceTopicFull[]>();
+  for (const t of allTopics) {
+    const list = topicsByModule.get(t.module_id) ?? [];
+    list.push({
+      id: t.id,
+      title: t.title,
+      orderIndex: t.order_index,
+      learningObjective: t.learning_objective,
+      why: t.why,
+      repertoireItem: repertoireByTopic.get(t.id) ?? null,
+      exercise: exerciseByTopic.get(t.id) ?? null,
+    });
+    topicsByModule.set(t.module_id, list);
+  }
 
   return {
     trail,
@@ -97,82 +137,18 @@ async function fetchReferenceTrail(
       orderIndex: m.order_index,
       topics: topicsByModule.get(m.id) ?? [],
     })),
-    topicIdsWithExercise: (exercises ?? []).map((e) => e.topic_id),
   };
 }
 
-export async function getReferenceTrail(
+export async function getFullReferenceTrail(
   supabase: Client,
   trailType: ReferenceTrailType
-): Promise<ReferenceTrailData | null> {
+): Promise<FullReferenceTrailData | null> {
   // Um erro de infra não deve ficar gravado no cache por 60s: em falha,
   // devolvemos null só para este render e o próximo request tenta de novo.
-  const raw = await unstable_cache(
-    () => fetchReferenceTrail(supabase, trailType),
-    ["reference-trail", trailType],
+  return unstable_cache(
+    () => fetchFullReferenceTrail(supabase, trailType),
+    ["reference-trail-full", trailType],
     { revalidate: REFERENCE_TTL, tags: [`reference-trail:${trailType}`] }
   )().catch(() => null);
-
-  if (!raw) return null;
-
-  return {
-    trail: raw.trail,
-    modules: raw.modules,
-    topicsWithExercise: new Set(raw.topicIdsWithExercise),
-  };
-}
-
-export function getReferenceTopicMeta(supabase: Client, topicId: string) {
-  return unstable_cache(
-    async () => {
-      const { data: topic } = await supabase
-        .from("topics")
-        .select("id, title, learning_objective, why, order_index")
-        .eq("id", topicId)
-        .single();
-      return topic ?? null;
-    },
-    ["reference-topic-meta", topicId],
-    { revalidate: REFERENCE_TTL, tags: [`topic:${topicId}`] }
-  )();
-}
-
-export function getReferenceRepertoireItem(supabase: Client, topicId: string) {
-  return unstable_cache(
-    async () => {
-      const { data: repertoireItems } = await supabase
-        .from("repertoire_items")
-        .select("id, title, content_type, youtube_url, content_html")
-        .eq("topic_id", topicId)
-        .order("order_index")
-        .limit(1);
-      return repertoireItems?.[0] ?? null;
-    },
-    ["reference-repertoire", topicId],
-    { revalidate: REFERENCE_TTL, tags: [`topic:${topicId}`] }
-  )();
-}
-
-export function getReferenceExercise(supabase: Client, topicId: string) {
-  return unstable_cache(
-    async () => {
-      // Exercício + questões num único round-trip, em vez de duas queries em cadeia.
-      const { data: exerciseRows } = await supabase
-        .from("exercises")
-        .select("id, title, instructions, exercise_questions(id, question_text, order_index)")
-        .eq("topic_id", topicId)
-        .order("order_index")
-        .limit(1);
-
-      const row = exerciseRows?.[0] ?? null;
-      if (!row) return { exercise: null, questions: [] };
-
-      const { exercise_questions, ...exercise } = row;
-      const questions = [...(exercise_questions ?? [])].sort((a, b) => a.order_index - b.order_index);
-
-      return { exercise, questions };
-    },
-    ["reference-exercise", topicId],
-    { revalidate: REFERENCE_TTL, tags: [`topic:${topicId}`] }
-  )();
 }

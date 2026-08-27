@@ -148,12 +148,14 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
             >
               Exercício enviado
             </button>
-            <Link
-              href={nextHref}
-              className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              Próximo →
-            </Link>
+            {nextHref && (
+              <Link
+                href={nextHref}
+                className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Próximo →
+              </Link>
+            )}
           </div>
         ) : (
           allAnswered && (

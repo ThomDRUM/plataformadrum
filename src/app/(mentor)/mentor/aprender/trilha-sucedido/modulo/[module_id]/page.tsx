@@ -1,4 +1,4 @@
-import { ReferenceModuleRedirectPage } from "@/app/(mentor)/mentor/aprender/_components/reference-views";
+import { ReferenceModulePage } from "@/app/(mentor)/mentor/aprender/_components/reference-views";
 
 export default async function TrilhaSucedidoModulePage({
   params,
@@ -6,5 +6,5 @@ export default async function TrilhaSucedidoModulePage({
   params: Promise<{ module_id: string }>;
 }) {
   const { module_id } = await params;
-  await ReferenceModuleRedirectPage({ trailType: "succeeded", moduleId: module_id });
+  return <ReferenceModulePage trailType="succeeded" moduleId={module_id} />;
 }
