@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 
+import { fetchUserFullDetail, type UserFullDetail } from "@/lib/actions/admin/users";
 import type { AdminUserRow } from "@/lib/admin/queries";
 import { ROLE_LABEL, STUDENT_TYPE_LABEL } from "@/lib/admin/types";
 import {
@@ -16,6 +16,7 @@ import { Badge } from "@/components/reui/badge";
 import { Frame, FramePanel } from "@/components/reui/frame";
 import { AccountStatusBadge } from "@/components/admin/status-badge";
 import { UsuarioAcoes } from "./usuario-acoes";
+import { UsuarioDetalheDialog } from "./usuario-detalhe-dialog";
 import {
   Table,
   TableBody,
@@ -62,6 +63,25 @@ export function UsuariosTable({
 }) {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState(() => emptyFilters(FILTER_GROUPS));
+  const [detailUser, setDetailUser] = useState<AdminUserRow | null>(null);
+  const [detail, setDetail] = useState<UserFullDetail | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  /**
+   * Busca no clique, não no `onOpenChange` do dialog: o `open` é controlado
+   * de fora (por `detailUser`), então o callback do dialog só dispara em
+   * fechamentos internos (Esc, clique no overlay) — nunca na abertura.
+   */
+  function handleShowDetail(user: AdminUserRow) {
+    setDetailUser(user);
+    setDetail(null);
+    setDetailError(null);
+
+    fetchUserFullDetail(user.id).then((result) => {
+      if (result.ok) setDetail(result.data);
+      else setDetailError(result.error);
+    });
+  }
 
   const visible = useMemo(() => {
     const term = normalize(search.trim());
@@ -124,12 +144,13 @@ export function UsuariosTable({
                 visible.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">
-                      <Link
-                        href={`/admin/usuarios/${user.id}`}
-                        className="hover:text-primary transition-colors"
+                      <button
+                        type="button"
+                        onClick={() => handleShowDetail(user)}
+                        className="text-left hover:text-primary transition-colors"
                       >
                         {user.fullName}
-                      </Link>
+                      </button>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5">
@@ -162,6 +183,18 @@ export function UsuariosTable({
           </Table>
         </FramePanel>
       </Frame>
+
+      {detailUser && (
+        <UsuarioDetalheDialog
+          user={detailUser}
+          detail={detail}
+          error={detailError}
+          open={detailUser !== null}
+          onOpenChange={(open) => {
+            if (!open) setDetailUser(null);
+          }}
+        />
+      )}
     </>
   );
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/admin";
+import { getUserDetail, getUserModuleAccess, getUserEmail } from "@/lib/admin/queries";
 import type { ActionResult } from "@/lib/admin/types";
 
 const ROLES = ["student", "mentor", "admin"] as const;
@@ -184,6 +185,34 @@ export async function fetchUserEmail(
     const { data, error } = await db.auth.admin.getUserById(userId);
     if (error) return { ok: false, error: error.message };
     return { ok: true, data: { email: data.user?.email ?? null } };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export type UserFullDetail = NonNullable<Awaited<ReturnType<typeof getUserDetail>>> & {
+  modules: Awaited<ReturnType<typeof getUserModuleAccess>>;
+  email: string | null;
+};
+
+/**
+ * Tudo que a tela `/admin/usuarios/[id]` mostra (perfil, vínculos, módulos e
+ * e-mail), num único fetch — alimenta o dialog de detalhe aberto a partir da
+ * listagem, que reaproveita os mesmos componentes daquela tela.
+ */
+export async function fetchUserFullDetail(userId: string): Promise<ActionResult<UserFullDetail>> {
+  try {
+    await assertAdmin();
+
+    const detail = await getUserDetail(userId);
+    if (!detail) return { ok: false, error: "Usuário não encontrado." };
+
+    const [modules, email] = await Promise.all([
+      getUserModuleAccess(userId, detail.profile.trail_id),
+      getUserEmail(userId),
+    ]);
+
+    return { ok: true, data: { ...detail, modules, email } };
   } catch (error) {
     return fail(error);
   }

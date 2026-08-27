@@ -16,7 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * navegável (dentro do que a RLS permitir) em vez de ficar totalmente
  * inacessível.
  */
-const readClient = cache(async () => {
+export const readClient = cache(async () => {
   try {
     return createAdminClient();
   } catch {
@@ -799,5 +799,129 @@ export async function getTopicDetail(topicId: string) {
     repertoire: repertoire?.[0] ?? null,
     exercise,
     questions: questions ?? [],
+  };
+}
+
+export interface DashboardUpcomingEvent {
+  id: string;
+  title: string;
+  date: string;
+  scheduleTitle: string | null;
+  scheduleStatus: string | null;
+  familyName: string | null;
+}
+
+export interface DashboardOverview {
+  totalUsers: number;
+  usersByRole: { student: number; mentor: number; admin: number };
+  totalFamilies: number;
+  totalProjects: number;
+  projectsByStatus: { active: number; paused: number; completed: number };
+  upcomingEventsCount: number;
+  submittedAnswersCount: number;
+  upcomingEvents: DashboardUpcomingEvent[];
+}
+
+/** Visão agregada da plataforma para `/admin/dashboard`. */
+export async function getDashboardOverview(): Promise<DashboardOverview> {
+  const supabase = await readClient();
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const in30DaysIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  const [
+    { data: profiles },
+    { count: totalFamilies },
+    { data: projects },
+    { count: upcomingEventsCount },
+    { count: submittedAnswersCount },
+    { data: events },
+  ] = await Promise.all([
+    supabase.from("profiles").select("role"),
+    supabase.from("families").select("id", { count: "exact", head: true }),
+    supabase.from("projects").select("status"),
+    supabase
+      .from("project_events")
+      .select("id", { count: "exact", head: true })
+      .not("date", "is", null)
+      .gte("date", todayIso)
+      .lte("date", in30DaysIso),
+    supabase
+      .from("exercise_answers")
+      .select("id", { count: "exact", head: true })
+      .not("submitted_at", "is", null),
+    supabase
+      .from("project_events")
+      .select("id, title, date, schedule_id")
+      .not("date", "is", null)
+      .gte("date", todayIso)
+      .order("date")
+      .limit(8),
+  ]);
+
+  // `project_events` → `project_schedule` → `projects` → `families`: resolvido
+  // em memória, como o restante deste arquivo faz para joins encadeados
+  // (ver `getFamilyOverview`), em vez de um select aninhado de 3 níveis.
+  const scheduleIds = [...new Set((events ?? []).map((e) => e.schedule_id))];
+
+  const { data: schedules } = scheduleIds.length
+    ? await supabase
+        .from("project_schedule")
+        .select("id, title, status, project_id")
+        .in("id", scheduleIds)
+    : { data: [] as { id: string; title: string; status: string; project_id: string }[] };
+
+  const projectIds = [...new Set((schedules ?? []).map((s) => s.project_id))];
+
+  const { data: eventProjects } = projectIds.length
+    ? await supabase.from("projects").select("id, family_id").in("id", projectIds)
+    : { data: [] as { id: string; family_id: string }[] };
+
+  const familyIds = [...new Set((eventProjects ?? []).map((p) => p.family_id))];
+
+  const { data: families } = familyIds.length
+    ? await supabase.from("families").select("id, name").in("id", familyIds)
+    : { data: [] as { id: string; name: string }[] };
+
+  const scheduleById = new Map((schedules ?? []).map((s) => [s.id, s]));
+  const familyIdByProject = new Map((eventProjects ?? []).map((p) => [p.id, p.family_id]));
+  const familyNameById = new Map((families ?? []).map((f) => [f.id, f.name]));
+
+  const usersByRole = { student: 0, mentor: 0, admin: 0 };
+  for (const p of profiles ?? []) {
+    if (p.role === "student" || p.role === "mentor" || p.role === "admin") {
+      usersByRole[p.role] += 1;
+    }
+  }
+
+  const projectsByStatus = { active: 0, paused: 0, completed: 0 };
+  for (const p of projects ?? []) {
+    if (p.status === "active" || p.status === "paused" || p.status === "completed") {
+      projectsByStatus[p.status] += 1;
+    }
+  }
+
+  return {
+    totalUsers: (profiles ?? []).length,
+    usersByRole,
+    totalFamilies: totalFamilies ?? 0,
+    totalProjects: (projects ?? []).length,
+    projectsByStatus,
+    upcomingEventsCount: upcomingEventsCount ?? 0,
+    submittedAnswersCount: submittedAnswersCount ?? 0,
+    upcomingEvents: (events ?? []).map((e) => {
+      const schedule = scheduleById.get(e.schedule_id);
+      const familyId = schedule ? familyIdByProject.get(schedule.project_id) : undefined;
+      return {
+        id: e.id,
+        title: e.title,
+        date: e.date as string,
+        scheduleTitle: schedule?.title ?? null,
+        scheduleStatus: schedule?.status ?? null,
+        familyName: familyId ? familyNameById.get(familyId) ?? null : null,
+      };
+    }),
   };
 }

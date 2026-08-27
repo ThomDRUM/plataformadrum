@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { updateUserProfile, resetUserPassword } from "@/lib/actions/admin/users";
@@ -15,6 +15,15 @@ interface Props {
   role: string;
   studentType: string | null;
   yearlyIntention: string | null;
+  /**
+   * Quando informado, o `<form>` ganha esse `id` e o botão de salvar não é
+   * renderizado aqui — quem passou o id renderiza o botão em outro lugar
+   * (atributo HTML `form`, que dispara o submit mesmo fora da árvore do
+   * form). Usado pelo dialog de detalhe, que move o botão para o rodapé.
+   */
+  formId?: string;
+  onDirtyChange?: (dirty: boolean) => void;
+  onPendingChange?: (pending: boolean) => void;
 }
 
 export function PerfilForm({
@@ -24,14 +33,39 @@ export function PerfilForm({
   role: initialRole,
   studentType,
   yearlyIntention,
+  formId,
+  onDirtyChange,
+  onPendingChange,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState(initialRole);
+  const [isDirty, setIsDirty] = useState(false);
 
   const [password, setPassword] = useState("");
   const [isResetting, startReset] = useTransition();
+
+  useEffect(() => {
+    onPendingChange?.(isPending);
+  }, [isPending, onPendingChange]);
+
+  /**
+   * Roda no `onChange` do `<form>` inteiro (bubble de qualquer campo, select
+   * incluso) em vez de por campo — lê tudo de `FormData` para não depender de
+   * cada input virar controlado só para checar se mudou.
+   */
+  function checkDirty(form: HTMLFormElement) {
+    const data = new FormData(form);
+    const dirty =
+      String(data.get("full_name") ?? "").trim() !== fullName ||
+      String(data.get("role") ?? "") !== initialRole ||
+      String(data.get("student_type") ?? "") !== (studentType ?? "") ||
+      String(data.get("yearly_intention") ?? "") !== (yearlyIntention ?? "");
+
+    setIsDirty(dirty);
+    onDirtyChange?.(dirty);
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -54,6 +88,8 @@ export function PerfilForm({
         return;
       }
       toast.success("Perfil atualizado.");
+      setIsDirty(false);
+      onDirtyChange?.(false);
       router.refresh();
     });
   }
@@ -74,7 +110,12 @@ export function PerfilForm({
     <section>
       <SectionTitle>Perfil</SectionTitle>
 
-      <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
+      <form
+        id={formId}
+        onSubmit={handleSubmit}
+        onChange={(e) => checkDirty(e.currentTarget)}
+        className="space-y-4 max-w-lg"
+      >
         <FormError message={error} />
 
         {email && (
@@ -111,9 +152,11 @@ export function PerfilForm({
           </>
         )}
 
-        <Button type="submit" size="lg" disabled={isPending}>
-          {isPending ? "Salvando…" : "Salvar perfil"}
-        </Button>
+        {!formId && (
+          <Button type="submit" size="lg" disabled={isPending || !isDirty}>
+            {isPending ? "Salvando…" : "Salvar perfil"}
+          </Button>
+        )}
       </form>
 
       <div className="mt-8 max-w-lg">

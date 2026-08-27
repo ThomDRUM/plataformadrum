@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -125,12 +126,14 @@ export function StudentSidebar({ userName, programName = "Minha Jornada", ...pro
                 <ChevronsUpDown className="ml-auto size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" side="top" className="min-w-56">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{userName}</span>
-                    <span className="text-xs text-muted-foreground">Mentorado DRUM</span>
-                  </div>
-                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{userName}</span>
+                      <span className="text-xs text-muted-foreground">Mentorado DRUM</span>
+                    </div>
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
                   <LogOut />

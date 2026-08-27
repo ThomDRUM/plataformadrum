@@ -32,3 +32,10 @@ export const PROJECT_STATUS_LABEL: Record<string, string> = {
   paused: "Pausado",
   completed: "Concluído",
 };
+
+/** `project_schedule.status` — mesmos valores usados em `cronograma-client.tsx`. */
+export const SCHEDULE_STATUS_LABEL: Record<string, string> = {
+  a_comecar: "A começar",
+  em_andamento: "Em andamento",
+  concluido: "Concluído",
+};
