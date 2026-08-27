@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import type { ActionResult } from "@/lib/mentor/types";
 
 // ── Overview ──────────────────────────────────────────────────────────────────
 
@@ -9,38 +10,75 @@ export async function updateOverviewField(
   projectId: string,
   field: "intention" | "mwta" | "point_a" | "point_b",
   value: string
-) {
+): Promise<ActionResult> {
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("project_overview")
     .update({ [field]: value, updated_at: new Date().toISOString() } as never)
     .eq("project_id", projectId);
+  if (error) return { ok: false, error: error.message };
   revalidatePath("/mentor/projeto");
+  return { ok: true };
 }
 
-export async function saveOutcomes(projectId: string, texts: string[]) {
+export async function saveOutcomes(projectId: string, texts: string[]): Promise<ActionResult> {
   const supabase = await createClient();
-  await supabase.from("project_desired_outcomes").delete().eq("project_id", projectId);
+  const { error: deleteError } = await supabase
+    .from("project_desired_outcomes")
+    .delete()
+    .eq("project_id", projectId);
+  if (deleteError) return { ok: false, error: deleteError.message };
+
   if (texts.length > 0) {
-    await supabase.from("project_desired_outcomes").insert(
+    const { error: insertError } = await supabase.from("project_desired_outcomes").insert(
       texts.map((text, i) => ({ project_id: projectId, text, order_index: i }))
     );
+    if (insertError) return { ok: false, error: insertError.message };
   }
   revalidatePath("/mentor/projeto");
+  return { ok: true };
+}
+
+export async function saveRules(
+  projectId: string,
+  rules: { title: string; description: string }[]
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error: deleteError } = await supabase
+    .from("project_rules")
+    .delete()
+    .eq("project_id", projectId);
+  if (deleteError) return { ok: false, error: deleteError.message };
+
+  if (rules.length > 0) {
+    const { error: insertError } = await supabase.from("project_rules").insert(
+      rules.map((r, i) => ({ project_id: projectId, title: r.title, description: r.description, order_index: i }))
+    );
+    if (insertError) return { ok: false, error: insertError.message };
+  }
+  revalidatePath("/mentor/projeto");
+  return { ok: true };
 }
 
 export async function saveRoles(
   projectId: string,
   roles: { person_name: string; description: string }[]
-) {
+): Promise<ActionResult> {
   const supabase = await createClient();
-  await supabase.from("project_roles").delete().eq("project_id", projectId);
+  const { error: deleteError } = await supabase
+    .from("project_roles")
+    .delete()
+    .eq("project_id", projectId);
+  if (deleteError) return { ok: false, error: deleteError.message };
+
   if (roles.length > 0) {
-    await supabase.from("project_roles").insert(
+    const { error: insertError } = await supabase.from("project_roles").insert(
       roles.map((r, i) => ({ project_id: projectId, person_name: r.person_name, description: r.description, order_index: i }))
     );
+    if (insertError) return { ok: false, error: insertError.message };
   }
   revalidatePath("/mentor/projeto");
+  return { ok: true };
 }
 
 export async function updateProjectDates(
