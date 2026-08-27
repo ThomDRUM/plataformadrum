@@ -138,9 +138,16 @@ export function AdminSidebar({ userName, ...props }: Props) {
               <DropdownMenuContent align="start" side="top" className="min-w-56">
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{userName}</span>
-                      <span className="text-xs text-muted-foreground">Admin DRUM</span>
+                    <div className="flex items-center gap-2">
+                      <Avatar size="sm">
+                        <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate text-sm font-medium">{userName}</span>
+                        <span className="text-xs text-muted-foreground">Admin DRUM</span>
+                      </div>
                     </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
@@ -148,9 +155,9 @@ export function AdminSidebar({ userName, ...props }: Props) {
                 <DropdownMenuGroup>
                   <DropdownMenuItem>
                     <User />
-                    Conta
+                    Perfil
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem render={<Link href="/admin/configuracoes" />}>
                     <Settings />
                     Configurações
                   </DropdownMenuItem>

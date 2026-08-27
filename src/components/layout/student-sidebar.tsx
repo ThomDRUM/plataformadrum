@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BookOpen, ChevronsUpDown, LogOut } from "lucide-react";
+import { Home, BookOpen, ChevronsUpDown, LogOut, User, Settings } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -128,11 +128,29 @@ export function StudentSidebar({ userName, programName = "Minha Jornada", ...pro
               <DropdownMenuContent align="start" side="top" className="min-w-56">
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{userName}</span>
-                      <span className="text-xs text-muted-foreground">Mentorado DRUM</span>
+                    <div className="flex items-center gap-2">
+                      <Avatar size="sm">
+                        <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate text-sm font-medium">{userName}</span>
+                        <span className="text-xs text-muted-foreground">Mentorado DRUM</span>
+                      </div>
                     </div>
                   </DropdownMenuLabel>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem>
+                    <User />
+                    Perfil
+                  </DropdownMenuItem>
+                  <DropdownMenuItem render={<Link href="/configuracoes" />}>
+                    <Settings />
+                    Configurações
+                  </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={handleLogout}>

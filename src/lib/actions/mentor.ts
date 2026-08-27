@@ -2,7 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { getSessionProfile } from "@/lib/auth/session";
 import type { ActionResult } from "@/lib/mentor/types";
+import { getMentoradoDetail, type MentoradoDetail } from "@/lib/mentor/mentorado-detail";
 
 // ── Overview ──────────────────────────────────────────────────────────────────
 
@@ -422,6 +424,17 @@ export async function deleteAssetOwnership(id: string): Promise<ActionResult> {
 }
 
 // ── Mentorados ────────────────────────────────────────────────────────────────
+
+export async function fetchMentoradoDetail(userId: string): Promise<ActionResult<MentoradoDetail>> {
+  const mentor = await getSessionProfile();
+  if (!mentor) return { ok: false, error: "Sessão expirada." };
+
+  const supabase = await createClient();
+  const detail = await getMentoradoDetail(supabase, mentor.id, userId);
+  if (!detail) return { ok: false, error: "Mentorado não encontrado." };
+
+  return { ok: true, data: detail };
+}
 
 export async function setModuleUnlockDate(
   userId: string,

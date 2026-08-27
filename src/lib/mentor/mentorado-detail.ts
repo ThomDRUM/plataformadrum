@@ -1,27 +1,63 @@
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { getSessionProfile } from "@/lib/auth/session";
-import { buildStudentAccessData, getCachedTrailContent, getUserProgress } from "@/lib/student/access";
-import { ModuleList, type ModuleData } from "./_components/module-list";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/types/database";
+import { buildStudentAccessData, getCachedTrailContent, getUserProgress, type TopicStatus } from "@/lib/student/access";
 
-export default async function MentoradoDetailPage({
-  params,
-}: {
-  params: Promise<{ user_id: string }>;
-}) {
-  const { user_id } = await params;
-  const supabase = await createClient();
-  const mentor = await getSessionProfile();
-  if (!mentor) redirect("/login");
+type Client = SupabaseClient<Database>;
 
+export interface MentoradoQuestionDetail {
+  id: string;
+  questionText: string;
+  answerText: string | null;
+  submittedAt: string | null;
+  answerId: string | null;
+  note: string;
+}
+
+export interface MentoradoTopicDetail {
+  id: string;
+  title: string;
+  orderIndex: number;
+  status: TopicStatus;
+  hasExercise: boolean;
+  repertoireViewed: boolean;
+  exerciseCompleted: boolean;
+  exercise: { id: string; title: string; questions: MentoradoQuestionDetail[] } | null;
+}
+
+export interface MentoradoModuleDetail {
+  id: string;
+  title: string;
+  orderIndex: number;
+  unlocked: boolean;
+  unlockDate: string | null;
+  forceUnlocked: boolean;
+  topics: MentoradoTopicDetail[];
+}
+
+export interface MentoradoDetail {
+  id: string;
+  fullName: string;
+  studentType: string | null;
+  hasTrail: boolean;
+  modules: MentoradoModuleDetail[];
+}
+
+/**
+ * Carrega o detalhe completo de um mentorado (módulos, tópicos, exercícios e
+ * notas do mentor). Retorna `null` quando `mentorId` não atende o projeto do
+ * aluno — quem chama trata isso como "não encontrado", não como erro.
+ */
+export async function getMentoradoDetail(
+  supabase: Client,
+  mentorId: string,
+  userId: string
+): Promise<MentoradoDetail | null> {
   const [mentorProjectsRes, studentRes] = await Promise.all([
-    supabase.from("mentor_projects").select("project_id").eq("mentor_id", mentor.id),
+    supabase.from("mentor_projects").select("project_id").eq("mentor_id", mentorId),
     supabase
       .from("profiles")
       .select("id, full_name, student_type, project_id, trail_id")
-      .eq("id", user_id)
+      .eq("id", userId)
       .single(),
   ]);
 
@@ -29,29 +65,25 @@ export default async function MentoradoDetailPage({
   const student = studentRes.data;
 
   if (!student || !student.project_id || !projectIds.includes(student.project_id)) {
-    redirect("/mentor/mentorados");
+    return null;
   }
 
-  const typeLabel = student.student_type === "successor" ? "Sucessor" : student.student_type === "succeeded" ? "Sucedido" : null;
-
   if (!student.trail_id) {
-    return (
-      <div className="max-w-3xl space-y-6">
-        <Link href="/mentor/mentorados" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Voltar
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{student.full_name}</h1>
-        <p className="text-sm text-muted-foreground/60">A jornada deste mentorado ainda não foi configurada.</p>
-      </div>
-    );
+    return {
+      id: student.id,
+      fullName: student.full_name,
+      studentType: student.student_type,
+      hasTrail: false,
+      modules: [],
+    };
   }
 
   const content = await getCachedTrailContent(supabase, student.trail_id);
   const exercises = content.exercises;
   const exerciseIds = exercises.map((e) => e.id);
 
-  // Progresso do aluno e o bloco de questões/respostas/notas em paralelo:
-  // as respostas trazem as notas do mentor aninhadas, num único round-trip.
+  // Progresso do aluno e o bloco de questões/respostas/notas em paralelo: as
+  // respostas trazem as notas do mentor aninhadas, num único round-trip.
   const [userProgress, questionsRes] = await Promise.all([
     getUserProgress(
       supabase,
@@ -67,15 +99,12 @@ export default async function MentoradoDetailPage({
           )
           .in("exercise_id", exerciseIds)
           .eq("exercise_answers.user_id", student.id)
-          .eq("exercise_answers.mentor_answer_notes.mentor_id", mentor.id)
+          .eq("exercise_answers.mentor_answer_notes.mentor_id", mentorId)
           .order("order_index")
       : Promise.resolve({ data: [] }),
   ]);
 
-  const { modules, topicsByModule, hasExercise, getTopicStatus } = buildStudentAccessData(
-    content,
-    userProgress
-  );
+  const { modules, topicsByModule, hasExercise, getTopicStatus } = buildStudentAccessData(content, userProgress);
 
   const accessMap = new Map(userProgress.access.map((a) => [a.module_id, a]));
   const progressByTopicId = new Map(userProgress.progress.map((p) => [p.topic_id, p]));
@@ -91,7 +120,7 @@ export default async function MentoradoDetailPage({
         (a.mentor_answer_notes ?? [])
           // o filtro aninhado já restringe ao mentor logado; re-checar aqui
           // garante que uma nota de outro mentor nunca vaze para a UI
-          .filter((n) => n.mentor_id === mentor.id)
+          .filter((n) => n.mentor_id === mentorId)
           .map((n) => [n.answer_id, n.note] as const)
       )
     )
@@ -105,7 +134,7 @@ export default async function MentoradoDetailPage({
   }
   const exerciseByTopicId = new Map(exercises.map((e) => [e.topic_id, e]));
 
-  const moduleData: ModuleData[] = modules.map((mod) => {
+  const modulesDetail: MentoradoModuleDetail[] = modules.map((mod) => {
     const access = accessMap.get(mod.id);
     const topics = topicsByModule.get(mod.id) ?? [];
 
@@ -151,23 +180,11 @@ export default async function MentoradoDetailPage({
     };
   });
 
-  return (
-    <div className="max-w-3xl space-y-8">
-      <div className="space-y-3">
-        <Link href="/mentor/mentorados" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Voltar
-        </Link>
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{student.full_name}</h1>
-          {typeLabel && (
-            <span className="text-xs px-2 py-0.5 rounded border border-border text-muted-foreground">
-              {typeLabel}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <ModuleList userId={student.id} mentorId={mentor.id} modules={moduleData} />
-    </div>
-  );
+  return {
+    id: student.id,
+    fullName: student.full_name,
+    studentType: student.student_type,
+    hasTrail: true,
+    modules: modulesDetail,
+  };
 }

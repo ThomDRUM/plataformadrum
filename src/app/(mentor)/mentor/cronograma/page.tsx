@@ -21,8 +21,6 @@ export default async function CronogramaPage() {
   const projectId = mp.project_id;
   const project = mp.projects as { start_date: string | null; end_date: string | null; families: { name: string } | null } | null;
   const familyName = project?.families?.name ?? "Projeto";
-  const projectStart = project?.start_date ?? "2026-06-01";
-  const projectEnd   = project?.end_date   ?? "2026-12-31";
 
   const [scheduleRes, meetingsRes] = await Promise.all([
     supabase
@@ -54,8 +52,6 @@ export default async function CronogramaPage() {
       familyName={familyName}
       startDate={project?.start_date ?? null}
       endDate={project?.end_date ?? null}
-      projectStart={projectStart}
-      projectEnd={projectEnd}
       items={items as Parameters<typeof CronogramaClient>[0]["items"]}
       meetings={(meetings ?? []) as { id: string; name: string; meeting_date: string | null; tipo: string | null }[]}
     />

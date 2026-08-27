@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionProfile } from "@/lib/auth/session";
 import { buildStudentAccessData, getCachedTrailContent, type UserProgress } from "@/lib/student/access";
-import { MentoradoCard } from "./_components/mentorado-card";
+import { PageHeader, EmptyState } from "@/components/admin/page-header";
+import { MentoradosTable } from "./_components/mentorados-table";
 
 export default async function MentoradosPage() {
   const supabase = await createClient();
@@ -16,13 +17,24 @@ export default async function MentoradosPage() {
 
   const projectIds = (mentorProjects ?? []).map((mp) => mp.project_id);
 
-  const { data: students } = projectIds.length
-    ? await supabase
-        .from("profiles")
-        .select("id, full_name, student_type, trail_id")
-        .eq("role", "student")
-        .in("project_id", projectIds)
-    : { data: [] };
+  const [{ data: students }, { data: projects }] = await Promise.all([
+    projectIds.length
+      ? supabase
+          .from("profiles")
+          .select("id, full_name, student_type, trail_id, project_id")
+          .eq("role", "student")
+          .in("project_id", projectIds)
+      : Promise.resolve({ data: [] }),
+    projectIds.length
+      ? supabase.from("projects").select("id, families(id, name)").in("id", projectIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  // `project_id` não tem FK única para join aninhado tipado, então resolvemos
+  // família em memória — mesmo padrão de `listUsers` no admin.
+  const familyByProject = new Map(
+    (projects ?? []).map((p) => [p.id, p.families as { id: string; name: string } | null])
+  );
 
   const studentList = students ?? [];
   const studentIds = studentList.map((s) => s.id);
@@ -67,6 +79,7 @@ export default async function MentoradosPage() {
   }
 
   const mentorados = studentList.map((student) => {
+    const family = student.project_id ? familyByProject.get(student.project_id) ?? null : null;
     const content = student.trail_id ? trailContents.get(student.trail_id) : null;
 
     if (!content?.trail) {
@@ -74,6 +87,8 @@ export default async function MentoradosPage() {
         id: student.id,
         fullName: student.full_name,
         studentType: student.student_type as string | null,
+        familyId: family?.id ?? null,
+        familyName: family?.name ?? null,
         modulesUnlocked: 0,
         modulesTotal: 0,
       };
@@ -88,25 +103,21 @@ export default async function MentoradosPage() {
       id: student.id,
       fullName: student.full_name,
       studentType: student.student_type,
+      familyId: family?.id ?? null,
+      familyName: family?.name ?? null,
       modulesUnlocked: modules.filter((m) => m.unlocked).length,
       modulesTotal: modules.length,
     };
   });
 
   return (
-    <div className="max-w-3xl space-y-8">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Mentorados</h1>
-      </div>
+    <div>
+      <PageHeader title="Mentorados" description="Acompanhe o progresso de cada mentorado na trilha." />
 
       {mentorados.length === 0 ? (
-        <p className="text-sm text-muted-foreground/60">Nenhum mentorado vinculado ainda.</p>
+        <EmptyState>Nenhum mentorado vinculado ainda.</EmptyState>
       ) : (
-        <div className="space-y-3">
-          {mentorados.map((m) => (
-            <MentoradoCard key={m.id} {...m} />
-          ))}
-        </div>
+        <MentoradosTable mentorados={mentorados} mentorId={mentor.id} />
       )}
     </div>
   );
