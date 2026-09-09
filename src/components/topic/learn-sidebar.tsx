@@ -61,8 +61,8 @@ export function LearnSidebar({
   hideStatus = false,
 }: Props) {
   return (
-    <aside className="w-64 shrink-0">
-      <div className="sticky top-10 flex max-h-[calc(100vh-5rem)] flex-col rounded-lg border border-border bg-card">
+    <aside className="w-full min-w-0 shrink-0 xl:w-64">
+      <div className="flex max-h-96 flex-col rounded-lg border border-border bg-card sm:max-h-[32rem] xl:sticky xl:top-10 xl:max-h-[calc(100svh-5rem)]">
         <div className="px-5 py-6 border-b border-border">
           <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1">
             Módulo {moduleNumber}
@@ -70,7 +70,7 @@ export function LearnSidebar({
           <p className="text-sm font-semibold text-foreground leading-snug">{moduleTitle}</p>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
+        <nav className="min-h-0 flex-1 px-3 py-4 space-y-4 overflow-y-auto">
           {topics.map((t) => {
             const isCurrentTopic = t.id === currentTopicId;
             const topicHref = `${baseHref}/${moduleId}/topico/${t.id}`;

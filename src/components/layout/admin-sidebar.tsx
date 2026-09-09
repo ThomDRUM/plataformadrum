@@ -10,7 +10,6 @@ import {
   Layers,
   ChevronsUpDown,
   LogOut,
-  User,
   Settings,
 } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
@@ -153,10 +152,6 @@ export function AdminSidebar({ userName, ...props }: Props) {
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <User />
-                    Perfil
-                  </DropdownMenuItem>
                   <DropdownMenuItem render={<Link href="/admin/configuracoes" />}>
                     <Settings />
                     Configurações

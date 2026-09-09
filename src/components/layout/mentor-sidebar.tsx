@@ -11,7 +11,6 @@ import {
   BookOpen,
   ChevronsUpDown,
   LogOut,
-  User,
   Settings,
 } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
@@ -156,10 +155,6 @@ export function MentorSidebar({ userName, familyName, ...props }: Props) {
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <User />
-                    Perfil
-                  </DropdownMenuItem>
                   <DropdownMenuItem render={<Link href="/mentor/configuracoes" />}>
                     <Settings />
                     Configurações

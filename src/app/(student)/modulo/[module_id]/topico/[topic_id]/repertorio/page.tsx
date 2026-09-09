@@ -29,7 +29,7 @@ export default async function TopicRepertoirePage({
   const repertoireItem = repertoireItems?.[0] ?? null;
 
   return (
-    <div className="flex gap-10">
+    <div className="flex min-w-0 flex-col gap-6 xl:flex-row xl:gap-10">
       <LearnSidebar
         moduleTitle={mod.title}
         moduleNumber={mod.orderIndex}
@@ -45,7 +45,7 @@ export default async function TopicRepertoirePage({
         moduleId={module_id}
       />
 
-      <div className="min-w-0 flex-1 max-w-4xl">
+      <div className="w-full min-w-0 max-w-4xl flex-1">
         <ModuleSelector
           modules={modules.map((m) => ({ id: m.id, title: m.title, orderIndex: m.orderIndex, unlocked: m.unlocked }))}
           currentModuleId={module_id}

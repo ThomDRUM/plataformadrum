@@ -141,13 +141,13 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
         Exercício
       </p>
 
-      <div className="border border-border rounded-lg p-5 space-y-5">
+      <div className="min-w-0 space-y-5 rounded-lg border border-border p-4 sm:p-5">
         <div>
           <p className="text-sm font-medium text-foreground leading-snug">{exercise.title}</p>
           {exercise.instructions && (
             <FormattedText
               text={exercise.instructions}
-              className="mt-1.5 text-base text-muted-foreground leading-relaxed"
+              className="mt-1.5 break-words text-base text-muted-foreground leading-relaxed [overflow-wrap:anywhere]"
             />
           )}
         </div>
@@ -178,7 +178,7 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
 
         {submitted ? (
           editing ? (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={handleSaveEdit}
@@ -197,7 +197,7 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 disabled

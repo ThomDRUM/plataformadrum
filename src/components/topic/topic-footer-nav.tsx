@@ -20,11 +20,11 @@ export function TopicFooterNav({
   backLabel = "Voltar à formação",
 }: Props) {
   return (
-    <div className="flex items-center justify-between mt-10 pt-6 border-t border-border">
+    <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-6">
       {previous ? (
         <Link
           href={previous.href}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ChevronLeft className="w-4 h-4" />
           {previous.label}
@@ -36,7 +36,7 @@ export function TopicFooterNav({
       {next ? (
         <Link
           href={next.href}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground/80 transition-colors"
+          className="ml-auto inline-flex min-w-0 items-center gap-1.5 text-right text-sm font-medium text-foreground transition-colors hover:text-foreground/80"
         >
           {next.label}
           <ChevronRight className="w-4 h-4" />
@@ -44,7 +44,7 @@ export function TopicFooterNav({
       ) : (
         <Link
           href={backHref}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground/80 transition-colors"
+          className="ml-auto inline-flex min-w-0 items-center gap-1.5 text-right text-sm font-medium text-foreground transition-colors hover:text-foreground/80"
         >
           {backLabel}
         </Link>

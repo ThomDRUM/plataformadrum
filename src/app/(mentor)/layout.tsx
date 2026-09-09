@@ -28,7 +28,9 @@ export default async function MentorLayout({ children }: { children: React.React
       <MentorSidebar userName={profile.fullName} familyName={familyName} />
       <SidebarInset>
         <MentorHeader />
-        <div className="px-10 py-10">{children}</div>
+        <div className="min-w-0 px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

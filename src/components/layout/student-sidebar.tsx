@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BookOpen, ChevronsUpDown, LogOut, User, Settings } from "lucide-react";
+import { Home, BookOpen, ChevronsUpDown, LogOut, Settings } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -143,10 +143,6 @@ export function StudentSidebar({ userName, programName = "Minha Jornada", ...pro
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <User />
-                    Perfil
-                  </DropdownMenuItem>
                   <DropdownMenuItem render={<Link href="/configuracoes" />}>
                     <Settings />
                     Configurações
