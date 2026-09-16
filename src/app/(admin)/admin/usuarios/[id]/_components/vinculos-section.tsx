@@ -63,7 +63,7 @@ export function VinculosSection({
     <section className="space-y-6">
       <div>
         <SectionTitle>Formação</SectionTitle>
-        <div className="max-w-lg">
+        <div className="max-w-2xl">
           <Field
             label="Formação atribuída"
             hint="Define quais módulos aparecem para esta pessoa."
@@ -89,7 +89,7 @@ export function VinculosSection({
       {role === "student" && (
         <div>
           <SectionTitle>Família</SectionTitle>
-          <div className="max-w-lg">
+          <div className="max-w-2xl">
             <Field
               label="Família do mentorado"
               hint="O vínculo é feito pelo projeto da família — é ele que liga mentorados e mentores."
@@ -121,7 +121,7 @@ export function VinculosSection({
       {role === "mentor" && (
         <div>
           <SectionTitle>Famílias atendidas</SectionTitle>
-          <p className="mb-3 text-xs text-muted-foreground max-w-lg">
+          <p className="mb-3 text-xs text-muted-foreground max-w-2xl">
             Um mentor atende famílias inteiras. Ao vincular uma família, ele passa a
             acompanhar todos os mentorados ligados ao projeto dela.
           </p>
@@ -129,7 +129,7 @@ export function VinculosSection({
           {families.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhuma família cadastrada.</p>
           ) : (
-            <ul className="max-w-lg divide-y divide-border border border-border rounded-lg">
+            <ul className="max-w-2xl divide-y divide-border border border-border rounded-lg">
               {families.flatMap((family) =>
                 family.projects.map((project) => {
                   const linked = mentorProjectIds.includes(project.id);

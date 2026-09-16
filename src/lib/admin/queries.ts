@@ -3,6 +3,12 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  buildStudentAccessData,
+  getCachedTrailContent,
+  getUserProgress,
+  type TopicStatus,
+} from "@/lib/student/access";
 
 /**
  * Client de leitura da área de admin.
@@ -206,50 +212,137 @@ export async function getUserDetail(userId: string) {
   };
 }
 
+export interface AdminAnswerRow {
+  questionId: string;
+  questionText: string;
+  answerText: string | null;
+  /** `null` = rascunho autosalvo que o aluno ainda não enviou. */
+  submittedAt: string | null;
+  mentorNotes: { mentorName: string; note: string }[];
+}
+
+export interface AdminTopicProgressRow {
+  id: string;
+  title: string;
+  orderIndex: number;
+  status: TopicStatus;
+  hasExercise: boolean;
+  /** "Leitura concluída": o aluno avançou pelo repertório do tópico. */
+  repertoireViewed: boolean;
+  exerciseCompleted: boolean;
+  exerciseTitle: string | null;
+  /** Vazio quando o tópico não tem exercício. */
+  answers: AdminAnswerRow[];
+}
+
 export interface ModuleAccessRow {
   moduleId: string;
   title: string;
   orderIndex: number;
   unlockDate: string | null;
   forceUnlocked: boolean;
+  /** Regra efetiva: liberação imediata OU (data já passou E módulo anterior concluído). */
+  unlocked: boolean;
+  topics: AdminTopicProgressRow[];
 }
 
-/** Módulos da formação do usuário, com o estado de liberação de cada um. */
-export async function getUserModuleAccess(
+/**
+ * Módulos da formação do usuário com o estado de liberação e a evolução dele
+ * em cada tópico (leitura, exercício e respostas). Espelha `getMentoradoDetail`
+ * da área do mentor, mas sem o guard de `mentor_projects` e lendo com
+ * service-role: o admin vê qualquer aluno e as notas de todos os mentores.
+ */
+export async function getUserModuleProgress(
   userId: string,
   trailId: string | null
 ): Promise<ModuleAccessRow[]> {
   if (!trailId) return [];
 
   const supabase = await readClient();
+  const content = await getCachedTrailContent(supabase, trailId);
+  if (!content.trail) return [];
 
-  const [{ data: trailModules }, { data: access }] = await Promise.all([
-    supabase
-      .from("trail_modules")
-      .select("order_index, modules(id, title)")
-      .eq("trail_id", trailId)
-      .order("order_index"),
-    supabase
-      .from("user_module_access")
-      .select("module_id, unlock_date, force_unlocked")
-      .eq("user_id", userId),
+  const exerciseIds = content.exercises.map((e) => e.id);
+
+  const [userProgress, questionsRes] = await Promise.all([
+    getUserProgress(
+      supabase,
+      userId,
+      content.modules.map((m) => m.id),
+      content.topics.map((t) => t.id)
+    ),
+    exerciseIds.length
+      ? supabase
+          .from("exercise_questions")
+          .select(
+            "id, exercise_id, question_text, order_index, exercise_answers(id, question_id, answer_text, submitted_at, mentor_answer_notes(note, profiles(full_name)))"
+          )
+          .in("exercise_id", exerciseIds)
+          .eq("exercise_answers.user_id", userId)
+          .order("order_index")
+      : Promise.resolve({ data: [] }),
   ]);
 
-  const accessByModule = new Map((access ?? []).map((a) => [a.module_id, a]));
+  const { modules, topicsByModule, hasExercise, getTopicStatus } = buildStudentAccessData(
+    content,
+    userProgress
+  );
 
-  return (trailModules ?? []).flatMap((tm) => {
-    const mod = tm.modules as { id: string; title: string } | null;
-    if (!mod) return [];
-    const a = accessByModule.get(mod.id);
-    return [
-      {
-        moduleId: mod.id,
-        title: mod.title,
-        orderIndex: tm.order_index,
-        unlockDate: a?.unlock_date ?? null,
-        forceUnlocked: a?.force_unlocked === true,
-      },
-    ];
+  const accessByModule = new Map(userProgress.access.map((a) => [a.module_id, a]));
+  const progressByTopic = new Map(userProgress.progress.map((p) => [p.topic_id, p]));
+  const exerciseByTopic = new Map(content.exercises.map((e) => [e.topic_id, e]));
+
+  const questions = questionsRes.data ?? [];
+  const questionsByExercise = new Map<string, typeof questions>();
+  for (const q of questions) {
+    const list = questionsByExercise.get(q.exercise_id) ?? [];
+    list.push(q);
+    questionsByExercise.set(q.exercise_id, list);
+  }
+
+  return modules.map((mod) => {
+    const access = accessByModule.get(mod.id);
+    const topics = topicsByModule.get(mod.id) ?? [];
+
+    return {
+      moduleId: mod.id,
+      title: mod.title,
+      orderIndex: mod.orderIndex,
+      unlockDate: access?.unlock_date ?? null,
+      forceUnlocked: access?.force_unlocked === true,
+      unlocked: mod.unlocked,
+      topics: topics.map((topic) => {
+        const exercise = exerciseByTopic.get(topic.id);
+        const progress = progressByTopic.get(topic.id);
+        const exerciseQuestions = exercise ? questionsByExercise.get(exercise.id) ?? [] : [];
+
+        return {
+          id: topic.id,
+          title: topic.title,
+          orderIndex: topic.orderIndex,
+          status: getTopicStatus(topic.id),
+          hasExercise: hasExercise(topic.id),
+          repertoireViewed: progress?.repertoire_viewed === true,
+          exerciseCompleted: progress?.exercise_completed === true,
+          exerciseTitle: exercise?.title ?? null,
+          answers: exerciseQuestions.map((q) => {
+            // O filtro `exercise_answers.user_id` já limita a uma resposta
+            // por questão (unique question_id+user_id).
+            const answer = (q.exercise_answers ?? [])[0];
+            return {
+              questionId: q.id,
+              questionText: q.question_text,
+              answerText: answer?.answer_text ?? null,
+              submittedAt: answer?.submitted_at ?? null,
+              mentorNotes: (answer?.mentor_answer_notes ?? []).map((n) => ({
+                mentorName: n.profiles?.full_name ?? "Mentor",
+                note: n.note,
+              })),
+            };
+          }),
+        };
+      }),
+    };
   });
 }
 

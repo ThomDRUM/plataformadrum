@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getUserDetail, getUserModuleAccess, getUserEmail } from "@/lib/admin/queries";
+import { getUserDetail, getUserModuleProgress, getUserEmail } from "@/lib/admin/queries";
 import { ROLE_LABEL } from "@/lib/admin/types";
 import { PageHeader } from "@/components/admin/page-header";
 import { Separator } from "@/components/ui/separator";
@@ -21,7 +21,7 @@ export default async function UsuarioDetalhePage({
   const { profile, trails, families, mentorProjectIds } = detail;
 
   const [modules, email] = await Promise.all([
-    getUserModuleAccess(id, profile.trail_id),
+    getUserModuleProgress(id, profile.trail_id),
     getUserEmail(id),
   ]);
 

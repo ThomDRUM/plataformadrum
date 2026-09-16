@@ -40,7 +40,7 @@ export function UsuarioDetalheDialog({ user, detail, error, open, onOpenChange }
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         overlayClassName={ADMIN_OVERLAY}
-        className="max-h-[85vh] gap-0 overflow-y-auto sm:max-w-lg"
+        className="max-h-[85vh] gap-0 overflow-y-auto sm:max-w-2xl"
       >
         <DialogHeader>
           <DialogTitle>{user.fullName}</DialogTitle>
@@ -52,7 +52,7 @@ export function UsuarioDetalheDialog({ user, detail, error, open, onOpenChange }
         ) : !detail ? (
           <p className="py-10 text-center text-sm text-muted-foreground">Carregando…</p>
         ) : (
-          <div className="space-y-6 py-2">
+          <div className="min-w-0 space-y-6 py-2">
             <PerfilForm
               userId={user.id}
               email={detail.email}

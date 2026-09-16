@@ -114,7 +114,7 @@ export function PerfilForm({
         id={formId}
         onSubmit={handleSubmit}
         onChange={(e) => checkDirty(e.currentTarget)}
-        className="space-y-4 max-w-lg"
+        className="space-y-4 max-w-2xl"
       >
         <FormError message={error} />
 
@@ -159,7 +159,7 @@ export function PerfilForm({
         )}
       </form>
 
-      <div className="mt-8 max-w-lg">
+      <div className="mt-8 max-w-2xl">
         <Field label="Definir nova senha" hint="Mínimo de 6 caracteres.">
           <div className="flex items-center gap-2">
             <TextField

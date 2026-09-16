@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/admin";
-import { getUserDetail, getUserModuleAccess, getUserEmail } from "@/lib/admin/queries";
+import { getUserDetail, getUserModuleProgress, getUserEmail } from "@/lib/admin/queries";
 import type { ActionResult } from "@/lib/admin/types";
 
 const ROLES = ["student", "mentor", "admin"] as const;
@@ -173,14 +173,14 @@ export async function updateUserProfile(
 }
 
 export type UserFullDetail = NonNullable<Awaited<ReturnType<typeof getUserDetail>>> & {
-  modules: Awaited<ReturnType<typeof getUserModuleAccess>>;
+  modules: Awaited<ReturnType<typeof getUserModuleProgress>>;
   email: string | null;
 };
 
 /**
- * Tudo que a tela `/admin/usuarios/[id]` mostra (perfil, vínculos, módulos e
- * e-mail), num único fetch — alimenta o dialog de detalhe aberto a partir da
- * listagem, que reaproveita os mesmos componentes daquela tela.
+ * Tudo que a tela `/admin/usuarios/[id]` mostra (perfil, vínculos, módulos com
+ * a evolução do aluno e e-mail), num único fetch — alimenta o dialog de detalhe
+ * aberto a partir da listagem, que reaproveita os mesmos componentes daquela tela.
  */
 export async function fetchUserFullDetail(userId: string): Promise<ActionResult<UserFullDetail>> {
   try {
@@ -190,7 +190,7 @@ export async function fetchUserFullDetail(userId: string): Promise<ActionResult<
     if (!detail) return { ok: false, error: "Usuário não encontrado." };
 
     const [modules, email] = await Promise.all([
-      getUserModuleAccess(userId, detail.profile.trail_id),
+      getUserModuleProgress(userId, detail.profile.trail_id),
       getUserEmail(userId),
     ]);
 
