@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CheckCircle2, Circle, CircleAlert, ChevronDown, ChevronUp } from "lucide-react";
 import { saveMentorNote } from "@/lib/actions/mentor";
 import { isTopicDone, type TopicStatus } from "@/lib/student/topic-status";
+import { RichContent } from "@/components/topic/rich-content";
 
 interface QuestionData {
   id: string;
@@ -43,7 +44,7 @@ function QuestionBlock({ question, mentorId }: { question: QuestionData; mentorI
 
   return (
     <div className="space-y-2 py-3 border-b border-border last:border-b-0">
-      <p className="text-sm font-medium text-foreground leading-snug">{question.questionText}</p>
+      <RichContent html={question.questionText} className="font-medium" />
       <div className="rounded-md bg-muted/30 border border-border px-3 py-2 text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
         {question.answerText || "—"}
       </div>

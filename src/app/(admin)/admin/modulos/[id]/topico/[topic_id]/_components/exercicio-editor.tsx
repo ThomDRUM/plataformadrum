@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import { saveExercise, deleteExercise } from "@/lib/actions/admin/topic-content";
-import { Field, TextField, TextAreaField, FormError } from "@/components/admin/form-fields";
+import { isRichContentEmpty } from "@/lib/rich-content";
+import { Field, TextField, FormError } from "@/components/admin/form-fields";
+import { RichEditor } from "@/components/admin/rich-editor/rich-editor";
 import { SectionTitle } from "@/components/admin/page-header";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { Button } from "@/components/ui/button";
@@ -20,7 +22,17 @@ interface Props {
 interface QuestionDraft {
   /** `null` numa pergunta nova — o id só existe depois de gravada. */
   id: string | null;
+  /**
+   * Chave de render estável: cada pergunta tem a própria instância do editor,
+   * e uma chave por índice faria a instância de uma pergunta removida ser
+   * reaproveitada pela seguinte.
+   */
+  key: string;
   text: string;
+}
+
+function newDraft(): QuestionDraft {
+  return { id: null, key: crypto.randomUUID(), text: "" };
 }
 
 export function ExercicioEditor({ topicId, moduleId, exercise, questions }: Props) {
@@ -32,26 +44,29 @@ export function ExercicioEditor({ topicId, moduleId, exercise, questions }: Prop
   const [instructions, setInstructions] = useState(exercise?.instructions ?? "");
   const [drafts, setDrafts] = useState<QuestionDraft[]>(
     questions.length > 0
-      ? questions.map((q) => ({ id: q.id, text: q.question_text }))
-      : [{ id: null, text: "" }]
+      ? questions.map((q) => ({ id: q.id, key: q.id, text: q.question_text }))
+      : [newDraft()]
   );
+  // O editor não é controlado: só lê `content` ao montar. Trocar a chave é o
+  // que o faz remontar vazio depois de excluir o exercício.
+  const [resetKey, setResetKey] = useState(0);
 
   function updateDraft(index: number, text: string) {
     setDrafts((prev) => prev.map((d, i) => (i === index ? { ...d, text } : d)));
   }
 
   function addDraft() {
-    setDrafts((prev) => [...prev, { id: null, text: "" }]);
+    setDrafts((prev) => [...prev, newDraft()]);
   }
 
   function removeDraft(index: number) {
-    setDrafts((prev) => (prev.length === 1 ? [{ id: null, text: "" }] : prev.filter((_, i) => i !== index)));
+    setDrafts((prev) => (prev.length === 1 ? [newDraft()] : prev.filter((_, i) => i !== index)));
   }
 
   function handleSave() {
     setError(null);
 
-    const filled = drafts.filter((d) => d.text.trim().length > 0);
+    const filled = drafts.filter((d) => !isRichContentEmpty(d.text));
     if (filled.length === 0) {
       setError("Adicione ao menos uma pergunta.");
       return;
@@ -61,7 +76,7 @@ export function ExercicioEditor({ topicId, moduleId, exercise, questions }: Prop
       const result = await saveExercise(topicId, moduleId, {
         title: title.trim(),
         instructions,
-        questions: filled.map((d) => ({ id: d.id, text: d.text.trim() })),
+        questions: filled.map((d) => ({ id: d.id, text: d.text })),
       });
 
       if (!result.ok) {
@@ -87,7 +102,8 @@ export function ExercicioEditor({ topicId, moduleId, exercise, questions }: Prop
               if (!result.ok) throw new Error(result.error);
               setTitle("");
               setInstructions("");
-              setDrafts([{ id: null, text: "" }]);
+              setDrafts([newDraft()]);
+              setResetKey((k) => k + 1);
               toast.success("Exercício excluído.");
               router.refresh();
             }}
@@ -101,7 +117,7 @@ export function ExercicioEditor({ topicId, moduleId, exercise, questions }: Prop
         respostas dela.
       </p>
 
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-4 max-w-3xl">
         <FormError message={error} />
 
         <Field label="Título">
@@ -113,29 +129,37 @@ export function ExercicioEditor({ topicId, moduleId, exercise, questions }: Prop
           />
         </Field>
 
-        <Field
-          label="Instruções"
-          hint="Texto simples. Linha em branco separa parágrafos; linhas começando com “- ” viram lista."
-        >
-          <TextAreaField
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-            rows={4}
+        {/* Sem `Field`: ele é um <label>, e um clique na barra do editor dentro
+            de um label é repassado ao primeiro botão dela. */}
+        <div>
+          <span className="mb-1.5 block text-xs font-medium text-foreground">Instruções</span>
+          <RichEditor
+            key={resetKey}
+            variant="compact"
+            content={instructions}
+            onChange={setInstructions}
+            placeholder="Oriente o mentorado sobre como responder (opcional)"
+            contentClassName="text-muted-foreground"
           />
-        </Field>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Negrito, itálico, listas, citação e link. O que você vê aqui é como o mentorado vai
+            ler.
+          </p>
+        </div>
 
         <div className="space-y-2">
           <span className="block text-xs font-medium text-foreground">Perguntas</span>
           {drafts.map((draft, index) => (
-            <div key={draft.id ?? `new-${index}`} className="flex items-start gap-2">
+            <div key={draft.key} className="flex items-start gap-2">
               <span className="mt-2 text-xs text-muted-foreground tabular-nums w-4 shrink-0">
                 {index + 1}
               </span>
-              <TextAreaField
-                value={draft.text}
-                onChange={(e) => updateDraft(index, e.target.value)}
-                rows={2}
+              <RichEditor
+                variant="compact"
+                content={draft.text}
+                onChange={(html) => updateDraft(index, html)}
                 placeholder="Escreva a pergunta"
+                contentClassName="font-medium"
               />
               <Button
                 type="button"

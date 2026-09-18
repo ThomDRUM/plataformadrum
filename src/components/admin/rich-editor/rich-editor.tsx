@@ -8,16 +8,39 @@ import Image from "@tiptap/extension-image";
 import Youtube from "@tiptap/extension-youtube";
 import { toast } from "sonner";
 import { uploadRepertoireImage } from "@/lib/actions/admin/uploads";
+import { toRichHtml } from "@/lib/rich-content";
+import { cn } from "@/lib/utils";
 import { Toolbar } from "./toolbar";
+
+/**
+ * `full` é o editor do repertório (títulos, imagem, vídeo). `compact` é o de
+ * textos curtos — instruções e perguntas de exercício — sem títulos nem mídia;
+ * o servidor aplica a allowlist correspondente (`sanitizeCompactHtml`).
+ */
+export type RichEditorVariant = "full" | "compact";
 
 interface Props {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  variant?: RichEditorVariant;
+  /**
+   * Variação de contexto da leitura (cor, peso) espelhada no editor — passe o
+   * mesmo `className` que o `RichContent` correspondente recebe.
+   */
+  contentClassName?: string;
 }
 
-export function RichEditor({ content, onChange, placeholder }: Props) {
+export function RichEditor({
+  content,
+  onChange,
+  placeholder,
+  variant = "full",
+  contentClassName,
+}: Props) {
   const [uploading, setUploading] = useState(false);
+  const compact = variant === "compact";
+  const minHeight = compact ? "min-h-20" : "min-h-64";
 
   const editor = useEditor({
     // O conteúdo é renderizado no servidor e hidratado no cliente; sem isto o
@@ -26,7 +49,7 @@ export function RichEditor({ content, onChange, placeholder }: Props) {
     extensions: [
       StarterKit.configure({
         // `<h1>` é o título da página — o conteúdo começa em H2.
-        heading: { levels: [2, 3] },
+        heading: compact ? false : { levels: [2, 3] },
         // O StarterKit v3 já traz o Link; configuramos aqui em vez de somar
         // uma segunda instância da extensão, que o TipTap rejeita.
         link: { openOnClick: false, autolink: true },
@@ -34,15 +57,22 @@ export function RichEditor({ content, onChange, placeholder }: Props) {
       Placeholder.configure({
         placeholder: placeholder ?? "Escreva o repertório deste tópico…",
       }),
-      Image.configure({ inline: false }),
-      Youtube.configure({ controls: true, nocookie: true, width: 640, height: 360 }),
+      ...(compact
+        ? []
+        : [
+            Image.configure({ inline: false }),
+            Youtube.configure({ controls: true, nocookie: true, width: 640, height: 360 }),
+          ]),
     ],
-    content,
+    // Texto puro legado (anterior ao editor rico) abre já convertido.
+    content: toRichHtml(content),
     editorProps: {
       attributes: {
-        // Mesma classe usada na leitura do aluno: o que se vê editando é o que
-        // o aluno vai ver.
-        class: "tiptap-content focus:outline-none min-h-64 px-4 py-3",
+        // Mesma classe usada na leitura (`RichContent`): o que se vê editando
+        // é o que aluno e mentor vão ver. O padding fica no wrapper, não aqui:
+        // a folha fixa a medida da linha em `max-width`, e padding neste
+        // elemento encolheria a linha só no editor.
+        class: cn("tiptap-content focus:outline-none", minHeight, contentClassName),
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -75,15 +105,22 @@ export function RichEditor({ content, onChange, placeholder }: Props) {
     return (
       <div className="rounded-lg border border-input">
         <div className="h-10 border-b border-border" />
-        <div className="min-h-64 px-4 py-3 text-sm text-muted-foreground">Carregando editor…</div>
+        <div className={cn("px-4 py-3 text-base text-muted-foreground", minHeight)}>
+          Carregando editor…
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 transition-colors">
-      <Toolbar editor={editor} onPickImage={handlePickImage} uploading={uploading} />
-      <EditorContent editor={editor} />
+    <div className="w-full min-w-0 rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 transition-colors">
+      <Toolbar
+        editor={editor}
+        variant={variant}
+        onPickImage={handlePickImage}
+        uploading={uploading}
+      />
+      <EditorContent editor={editor} className="px-4 py-3" />
     </div>
   );
 }

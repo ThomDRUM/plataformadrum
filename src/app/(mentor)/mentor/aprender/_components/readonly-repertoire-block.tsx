@@ -1,3 +1,5 @@
+import { RichContent } from "@/components/topic/rich-content";
+
 interface RepertoireItemData {
   id: string;
   title: string;
@@ -28,10 +30,7 @@ export function ReadOnlyRepertoireBlock({ item }: { item: RepertoireItemData | n
 
       {item?.content_type === "text" && (
         item.content_html ? (
-          <div
-            className="tiptap-content text-foreground/80"
-            dangerouslySetInnerHTML={{ __html: item.content_html }}
-          />
+          <RichContent html={item.content_html} />
         ) : (
           <p className="text-sm text-muted-foreground/60">Conteúdo não disponível.</p>
         )
