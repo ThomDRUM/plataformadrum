@@ -6,7 +6,7 @@ import Link from "next/link";
 import { CircleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { RichContent } from "@/components/topic/rich-content";
+import { FormattedText } from "@/components/topic/formatted-text";
 
 export interface ExerciseData {
   id: string;
@@ -145,9 +145,9 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
         <div>
           <p className="text-sm font-medium text-foreground leading-snug">{exercise.title}</p>
           {exercise.instructions && (
-            <RichContent
-              html={exercise.instructions}
-              className="mt-1.5 text-muted-foreground [overflow-wrap:anywhere]"
+            <FormattedText
+              text={exercise.instructions}
+              className="mt-1.5 break-words text-base text-muted-foreground leading-relaxed [overflow-wrap:anywhere]"
             />
           )}
         </div>
@@ -155,7 +155,10 @@ export function ExerciseBlock({ userId, topicId, exercise, questions, initialAns
         <div className="space-y-4">
           {questions.map((q) => (
             <div key={q.id} className="space-y-1.5">
-              <RichContent html={q.question_text} className="font-medium" />
+              <FormattedText
+                text={q.question_text}
+                className="text-base font-medium text-foreground leading-snug"
+              />
               <textarea
                 value={answers[q.id] ?? ""}
                 onChange={(e) => handleChange(q.id, e.target.value)}

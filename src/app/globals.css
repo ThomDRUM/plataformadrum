@@ -122,61 +122,42 @@
   }
 }
 
-/*
- * Tipografia do conteúdo rico — a MESMA folha para o editor do admin
- * (`RichEditor`) e para a leitura de aluno e mentor (`RichContent`). Qualquer
- * ajuste aqui vale para os dois lados; é isso que garante que o autor vê o que
- * o leitor vai ver.
- *
- * Fica em `@layer components` de propósito: fora de layer, estas regras venciam
- * as utilities do Tailwind v4 e um `text-muted-foreground` no elemento era
- * ignorado em silêncio.
- */
-@layer components {
-  .tiptap-content {
-    @apply text-base leading-relaxed text-foreground break-words;
-    /* Medida de linha fixa: a quebra do texto não depende da largura do
-       container, então editor e leitura quebram no mesmo ponto. */
-    max-width: 72ch;
-  }
+/* TipTap editor styles */
+.tiptap-content {
+  @apply text-sm leading-relaxed text-foreground;
+}
 
-  .tiptap-content p { @apply mb-3; }
-  .tiptap-content h2 { @apply text-xl font-semibold mb-3 mt-6; }
-  .tiptap-content h3 { @apply text-lg font-semibold mb-2 mt-4; }
-  .tiptap-content ul { @apply list-disc pl-5 mb-3 space-y-1; }
-  .tiptap-content ol { @apply list-decimal pl-5 mb-3 space-y-1; }
-  .tiptap-content li > p { @apply mb-0; }
-  .tiptap-content blockquote { @apply mb-3 border-l-2 border-border pl-4 italic text-muted-foreground; }
-  .tiptap-content strong { @apply font-semibold; }
-  .tiptap-content em { @apply italic; }
-  .tiptap-content s { @apply line-through; }
-  .tiptap-content a { @apply text-primary underline underline-offset-2; }
-  .tiptap-content hr { @apply my-6 border-t border-border; }
-  .tiptap-content code { @apply rounded bg-muted px-1 py-0.5 text-[0.9em]; }
-  .tiptap-content pre { @apply mb-3 overflow-x-auto rounded-lg bg-muted p-3 text-[0.9em]; }
-  .tiptap-content pre code { @apply bg-transparent p-0; }
+.tiptap-content p { @apply mb-3; }
+.tiptap-content h2 { @apply text-lg font-semibold mb-3 mt-6; }
+.tiptap-content h3 { @apply text-base font-semibold mb-2 mt-4; }
+.tiptap-content ul { @apply list-disc pl-5 mb-3 space-y-1; }
+.tiptap-content ol { @apply list-decimal pl-5 mb-3 space-y-1; }
+.tiptap-content blockquote { @apply border-l-2 border-border pl-4 italic text-muted-foreground; }
+.tiptap-content strong { @apply font-semibold; }
+.tiptap-content em { @apply italic; }
+.tiptap-content s { @apply line-through; }
+.tiptap-content a { @apply text-primary underline underline-offset-2; }
+.tiptap-content hr { @apply my-6 border-t border-border; }
+.tiptap-content code { @apply rounded bg-muted px-1 py-0.5 text-[0.9em]; }
+.tiptap-content pre { @apply mb-3 overflow-x-auto rounded-lg bg-muted p-3 text-[0.9em]; }
+.tiptap-content pre code { @apply bg-transparent p-0; }
 
-  /* Mídia — imagens e vídeo entram pelo editor de repertório. */
-  .tiptap-content img { @apply my-4 h-auto max-w-full rounded-lg border border-border; }
-  .tiptap-content img.ProseMirror-selectednode { @apply ring-2 ring-ring; }
+/* Mídia — imagens e vídeo entram pelo editor de repertório. */
+.tiptap-content img { @apply my-4 h-auto max-w-full rounded-lg border border-border; }
+.tiptap-content img.ProseMirror-selectednode { @apply ring-2 ring-ring; }
 
-  /* O nó de vídeo do TipTap é um <div data-youtube-video> em volta do iframe. */
-  .tiptap-content div[data-youtube-video] { @apply my-4; }
-  .tiptap-content div[data-youtube-video] iframe {
-    @apply aspect-video h-auto w-full rounded-lg border border-border bg-muted;
-  }
+/* O nó de vídeo do TipTap é um <div data-youtube-video> em volta do iframe. */
+.tiptap-content div[data-youtube-video] { @apply my-4; }
+.tiptap-content div[data-youtube-video] iframe {
+  @apply aspect-video h-auto w-full rounded-lg border border-border bg-muted;
+}
 
-  /* O bloco encaixa igual dentro da caixa do editor e solto na página. */
-  .tiptap-content > :first-child { @apply mt-0; }
-  .tiptap-content > :last-child { @apply mb-0; }
-
-  .ProseMirror {
-    @apply outline-none;
-  }
-  .ProseMirror p.is-editor-empty:first-child::before {
-    @apply text-muted-foreground pointer-events-none float-left h-0;
-    content: attr(data-placeholder);
-  }
+.ProseMirror {
+  @apply outline-none min-h-[120px];
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-muted-foreground pointer-events-none float-left h-0;
+  content: attr(data-placeholder);
 }
 
 .dark {

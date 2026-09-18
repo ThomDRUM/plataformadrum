@@ -54,17 +54,3 @@ const OPTIONS: sanitizeHtml.IOptions = {
 export function sanitizeContentHtml(html: string): string {
   return sanitizeHtml(html, OPTIONS);
 }
-
-// O editor `compact` (instruções e perguntas de exercício) não tem títulos nem
-// mídia; a allowlist acompanha a barra de ferramentas dele.
-const COMPACT_EXCLUDED = new Set(["h2", "h3", "img", "div", "iframe"]);
-
-const COMPACT_OPTIONS: sanitizeHtml.IOptions = {
-  ...OPTIONS,
-  allowedTags: (OPTIONS.allowedTags as string[]).filter((tag) => !COMPACT_EXCLUDED.has(tag)),
-  allowedAttributes: { a: ["href", "target", "rel"] },
-};
-
-export function sanitizeCompactHtml(html: string): string {
-  return sanitizeHtml(html, COMPACT_OPTIONS);
-}

@@ -1,4 +1,4 @@
-import { RichContent } from "@/components/topic/rich-content";
+import { FormattedText } from "@/components/topic/formatted-text";
 
 interface ExerciseData {
   id: string;
@@ -38,13 +38,20 @@ export function ReadOnlyExerciseBlock({ exercise, questions }: { exercise: Exerc
         <div>
           <p className="text-sm font-medium text-foreground leading-snug">{exercise.title}</p>
           {exercise.instructions && (
-            <RichContent html={exercise.instructions} className="mt-1.5 text-muted-foreground" />
+            <FormattedText
+              text={exercise.instructions}
+              className="mt-1.5 text-sm text-muted-foreground leading-relaxed"
+            />
           )}
         </div>
 
         <div className="space-y-4">
           {questions.map((q) => (
-            <RichContent key={q.id} html={q.question_text} className="font-medium" />
+            <FormattedText
+              key={q.id}
+              text={q.question_text}
+              className="text-sm font-medium text-foreground leading-snug"
+            />
           ))}
         </div>
       </div>

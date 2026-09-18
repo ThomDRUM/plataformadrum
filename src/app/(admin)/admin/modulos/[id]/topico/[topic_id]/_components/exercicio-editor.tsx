@@ -129,10 +129,10 @@ export function ExercicioEditor({ topicId, moduleId, exercise, questions }: Prop
           />
         </Field>
 
-        {/* Sem `Field`: ele é um <label>, e um clique na barra do editor dentro
-            de um label é repassado ao primeiro botão dela. */}
-        <div>
-          <span className="mb-1.5 block text-xs font-medium text-foreground">Instruções</span>
+        <Field
+          label="Instruções"
+          hint="O que você vê aqui é como o mentorado vai ler."
+        >
           <RichEditor
             key={resetKey}
             variant="compact"
@@ -141,11 +141,7 @@ export function ExercicioEditor({ topicId, moduleId, exercise, questions }: Prop
             placeholder="Oriente o mentorado sobre como responder (opcional)"
             contentClassName="text-muted-foreground"
           />
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Negrito, itálico, listas, citação e link. O que você vê aqui é como o mentorado vai
-            ler.
-          </p>
-        </div>
+        </Field>
 
         <div className="space-y-2">
           <span className="block text-xs font-medium text-foreground">Perguntas</span>

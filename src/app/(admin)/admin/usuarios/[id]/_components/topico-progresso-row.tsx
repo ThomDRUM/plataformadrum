@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { CheckCircle2, Circle, CircleAlert, ChevronDown, ChevronUp } from "lucide-react";
 import type { AdminAnswerRow, AdminTopicProgressRow } from "@/lib/admin/queries";
-import { RichContent } from "@/components/topic/rich-content";
 
 function formatDateTimeBR(iso: string): string {
   const d = new Date(iso);
@@ -15,7 +14,7 @@ function formatDateTimeBR(iso: string): string {
 function RespostaBlock({ answer }: { answer: AdminAnswerRow }) {
   return (
     <div className="space-y-2 py-3 border-b border-border last:border-b-0">
-      <RichContent html={answer.questionText} className="font-medium" />
+      <p className="text-sm font-medium text-foreground leading-snug">{answer.questionText}</p>
       <div className="rounded-md bg-muted/30 border border-border px-3 py-2 text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
         {answer.answerText || "—"}
       </div>
