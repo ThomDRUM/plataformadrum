@@ -136,6 +136,7 @@
 .tiptap-content strong { @apply font-semibold; }
 .tiptap-content em { @apply italic; }
 .tiptap-content s { @apply line-through; }
+.tiptap-content u { @apply underline underline-offset-2; }
 .tiptap-content a { @apply text-primary underline underline-offset-2; }
 .tiptap-content hr { @apply my-6 border-t border-border; }
 .tiptap-content code { @apply rounded bg-muted px-1 py-0.5 text-[0.9em]; }

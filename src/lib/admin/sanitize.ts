@@ -17,6 +17,10 @@ const OPTIONS: sanitizeHtml.IOptions = {
     "strong",
     "em",
     "s",
+    // O StarterKit traz Underline por padrão e a regra de parse casa `<u>` e
+    // `text-decoration: underline`. Sem `u` aqui, um sublinhado colado aparece
+    // no editor e some no save, sem o autor entender por quê.
+    "u",
     "code",
     "pre",
     "h2",

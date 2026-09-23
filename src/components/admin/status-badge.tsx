@@ -116,3 +116,34 @@ export function ModuleUsageBadge({ trailTitles }: { trailTitles: string[] }) {
 
   return <span className="text-muted-foreground">{trailTitles.join(", ")}</span>;
 }
+
+/**
+ * Conteúdo do tópico. Sem repertório o mentorado abre o tópico e não encontra
+ * nada para ler — é defeito. Sem exercício é uma escolha válida, por isso neutro.
+ */
+export function TopicContentBadges({
+  hasRepertoire,
+  questionCount,
+}: {
+  hasRepertoire: boolean;
+  questionCount: number | null;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {hasRepertoire ? (
+        <Badge variant="success-light" size="sm">
+          Com repertório
+        </Badge>
+      ) : (
+        <Badge variant="destructive-light" size="sm">
+          Sem repertório
+        </Badge>
+      )}
+      <Badge variant="secondary" size="sm">
+        {questionCount === null
+          ? "Sem exercício"
+          : `Exercício · ${questionCount} ${questionCount === 1 ? "pergunta" : "perguntas"}`}
+      </Badge>
+    </div>
+  );
+}

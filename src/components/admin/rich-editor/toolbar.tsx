@@ -19,11 +19,9 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { RichEditorVariant } from "./rich-editor";
 
 interface Props {
   editor: Editor;
-  variant: RichEditorVariant;
   onPickImage: (file: File) => void;
   uploading: boolean;
 }
@@ -68,9 +66,7 @@ function Divider() {
   return <span className="mx-1 h-5 w-px bg-border" aria-hidden />;
 }
 
-export function Toolbar({ editor, variant, onPickImage, uploading }: Props) {
-  // `compact` não tem títulos nem mídia — ver `RichEditor`.
-  const full = variant === "full";
+export function Toolbar({ editor, onPickImage, uploading }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleLink() {
@@ -97,27 +93,23 @@ export function Toolbar({ editor, variant, onPickImage, uploading }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 border-b border-border px-2 py-1.5">
-      {full && (
-        <>
-          <ToolbarButton
-            title="Título"
-            active={editor.isActive("heading", { level: 2 })}
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          >
-            <Heading2 className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            title="Subtítulo"
-            active={editor.isActive("heading", { level: 3 })}
-            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          >
-            <Heading3 className="h-4 w-4" />
-          </ToolbarButton>
+    <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 rounded-t-lg border-b border-border bg-card px-2 py-1.5">
+      <ToolbarButton
+        title="Título"
+        active={editor.isActive("heading", { level: 2 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+      >
+        <Heading2 className="h-4 w-4" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Subtítulo"
+        active={editor.isActive("heading", { level: 3 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+      >
+        <Heading3 className="h-4 w-4" />
+      </ToolbarButton>
 
-          <Divider />
-        </>
-      )}
+      <Divider />
 
       <ToolbarButton
         title="Negrito"
@@ -163,24 +155,20 @@ export function Toolbar({ editor, variant, onPickImage, uploading }: Props) {
       <ToolbarButton title="Link" active={editor.isActive("link")} onClick={handleLink}>
         <LinkIcon className="h-4 w-4" />
       </ToolbarButton>
-      {full && (
-        <>
-          <ToolbarButton
-            title="Imagem"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {uploading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ImageIcon className="h-4 w-4" />
-            )}
-          </ToolbarButton>
-          <ToolbarButton title="Vídeo do YouTube" onClick={handleYoutube}>
-            <Video className="h-4 w-4" />
-          </ToolbarButton>
-        </>
-      )}
+      <ToolbarButton
+        title="Imagem"
+        disabled={uploading}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        {uploading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <ImageIcon className="h-4 w-4" />
+        )}
+      </ToolbarButton>
+      <ToolbarButton title="Vídeo do YouTube" onClick={handleYoutube}>
+        <Video className="h-4 w-4" />
+      </ToolbarButton>
 
       <Divider />
 

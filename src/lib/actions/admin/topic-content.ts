@@ -3,8 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/admin";
-import { sanitizeContentHtml, sanitizeCompactHtml } from "@/lib/admin/sanitize";
-import { isRichContentEmpty, toRichHtml } from "@/lib/rich-content";
+import { sanitizeContentHtml } from "@/lib/admin/sanitize";
 import {
   revalidateTopicContent,
   revalidateTrailContent,
@@ -152,19 +151,7 @@ export async function saveExercise(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
-  const { title } = parsed.data;
-
-  // `toRichHtml` antes de sanitizar: um campo legado em texto puro que o autor
-  // não tocou chega aqui ainda como texto, e sai gravado já como HTML.
-  const instructionsHtml = sanitizeCompactHtml(toRichHtml(parsed.data.instructions));
-  const instructions = isRichContentEmpty(instructionsHtml) ? null : instructionsHtml;
-
-  const questions = parsed.data.questions
-    .map((q) => ({ id: q.id, text: sanitizeCompactHtml(toRichHtml(q.text)) }))
-    .filter((q) => !isRichContentEmpty(q.text));
-  if (questions.length === 0) {
-    return { ok: false, error: "Adicione ao menos uma pergunta." };
-  }
+  const { title, instructions, questions } = parsed.data;
 
   try {
     const { db } = await assertAdmin();
@@ -184,7 +171,7 @@ export async function saveExercise(
         .from("exercises")
         .update({
           title,
-          instructions,
+          instructions: instructions?.trim() || null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id);
@@ -196,7 +183,7 @@ export async function saveExercise(
         .insert({
           topic_id: topicId,
           title,
-          instructions,
+          instructions: instructions?.trim() || null,
           order_index: 0,
         })
         .select("id")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -8,6 +8,7 @@ import Image from "@tiptap/extension-image";
 import Youtube from "@tiptap/extension-youtube";
 import { toast } from "sonner";
 import { uploadRepertoireImage } from "@/lib/actions/admin/uploads";
+import { isPlainTextPaste, looksLikeHtmlSource, normalizeHtmlSource } from "./paste-html";
 import { Toolbar } from "./toolbar";
 
 interface Props {
@@ -18,6 +19,9 @@ interface Props {
 
 export function RichEditor({ content, onChange, placeholder }: Props) {
   const [uploading, setUploading] = useState(false);
+  // `view.pasteHTML` reentra no `handlePaste` abaixo; sem a trava, o segundo
+  // passe leria o mesmo clipboard e chamaria `pasteHTML` de novo, sem fim.
+  const convertingPaste = useRef(false);
 
   const editor = useEditor({
     // O conteúdo é renderizado no servidor e hidratado no cliente; sem isto o
@@ -43,6 +47,36 @@ export function RichEditor({ content, onChange, placeholder }: Props) {
         // Mesma classe usada na leitura do aluno: o que se vê editando é o que
         // o aluno vai ver.
         class: "tiptap-content focus:outline-none min-h-64 px-4 py-3",
+      },
+      // Código-fonte HTML colado como texto: sem isto o ProseMirror usa o
+      // flavor `text/plain` e o mentorado acaba lendo as tags cruas na tela.
+      //
+      // Lemos `text/plain` mesmo quando existe `text/html` de propósito —
+      // copiar de um editor de código traz um `text/html` de spans de
+      // destaque de sintaxe, e a fonte de verdade é o texto puro.
+      handlePaste(view, event) {
+        if (convertingPaste.current) return false;
+        if (isPlainTextPaste(view)) return false;
+        // Dentro de um bloco de código o ProseMirror já insere texto puro;
+        // converter ali destruiria justamente o uso do bloco.
+        if (view.state.selection.$from.parent.type.spec.code) return false;
+
+        const text = event.clipboardData?.getData("text/plain") ?? "";
+        if (!looksLikeHtmlSource(text)) return false;
+
+        convertingPaste.current = true;
+        try {
+          // Delegar ao `pasteHTML` em vez de montar o slice à mão: é ele que
+          // normaliza os irmãos do topo, abre o slice para o texto fundir no
+          // parágrafo atual e marca a transação como `paste` — meta que as
+          // paste rules do TipTap (YouTube, link) verificam para rodar.
+          //
+          // Se o HTML normalizado ficar vazio ele devolve `false`, e o paste
+          // original segue adiante como texto literal.
+          return view.pasteHTML(normalizeHtmlSource(text), event);
+        } finally {
+          convertingPaste.current = false;
+        }
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
