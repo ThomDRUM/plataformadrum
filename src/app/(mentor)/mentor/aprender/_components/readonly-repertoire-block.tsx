@@ -1,3 +1,5 @@
+import { HtmlDocumentFrame } from "@/components/topic/html-document-frame";
+
 interface RepertoireItemData {
   id: string;
   title: string;
@@ -32,6 +34,14 @@ export function ReadOnlyRepertoireBlock({ item }: { item: RepertoireItemData | n
             className="tiptap-content text-foreground/80"
             dangerouslySetInnerHTML={{ __html: item.content_html }}
           />
+        ) : (
+          <p className="text-sm text-muted-foreground/60">Conteúdo não disponível.</p>
+        )
+      )}
+
+      {item?.content_type === "html" && (
+        item.content_html ? (
+          <HtmlDocumentFrame html={item.content_html} />
         ) : (
           <p className="text-sm text-muted-foreground/60">Conteúdo não disponível.</p>
         )

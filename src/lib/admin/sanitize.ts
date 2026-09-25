@@ -58,3 +58,79 @@ const OPTIONS: sanitizeHtml.IOptions = {
 export function sanitizeContentHtml(html: string): string {
   return sanitizeHtml(html, OPTIONS);
 }
+
+/**
+ * Repertório no modo HTML: um documento completo, com `<style>`, classes e
+ * fontes próprias, escrito fora da plataforma e colado aqui. Ele é exibido
+ * num iframe sem `allow-scripts` (ver `HtmlDocumentFrame`), então o CSS fica
+ * isolado do app e o JS não roda de qualquer forma. A allowlist mantém tudo
+ * que é apresentação e corta o que executa código ou navega sozinho.
+ */
+const DOCUMENT_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+    "html",
+    "head",
+    "body",
+    "title",
+    "meta",
+    "link",
+    "style",
+    "h1",
+    "u",
+    "s",
+    "img",
+    "picture",
+    "source",
+    "figure",
+    "figcaption",
+    "iframe",
+  ]),
+  // `style` está na lista de tags "vulneráveis" do sanitize-html; aqui o
+  // documento roda sem scripts dentro de um iframe isolado, que é o que
+  // torna o CSS livre aceitável.
+  allowVulnerableTags: true,
+  allowedAttributes: {
+    "*": [
+      "class",
+      "style",
+      "id",
+      "title",
+      "lang",
+      "dir",
+      "role",
+      "aria-*",
+      "data-*",
+      "align",
+      "width",
+      "height",
+      "colspan",
+      "rowspan",
+    ],
+    a: ["href", "name", "target", "rel"],
+    img: ["src", "srcset", "sizes", "alt", "loading"],
+    source: ["srcset", "type", "media"],
+    link: ["rel", "href", "media", "crossorigin"],
+    meta: ["charset", "name", "content"],
+    iframe: ["src", "allow", "allowfullscreen", "frameborder"],
+  },
+  allowedSchemes: ["http", "https", "mailto", "tel"],
+  allowedSchemesByTag: { img: ["http", "https"], link: ["https"] },
+  allowedIframeHostnames: ["www.youtube.com", "youtube.com", "www.youtube-nocookie.com"],
+  // Só `<link>` de folha de estilo (fontes do Google, por exemplo) e
+  // `<meta>` inofensivos: `http-equiv="refresh"` redirecionaria o iframe.
+  exclusiveFilter: (frame) =>
+    (frame.tag === "link" && !/(^|\s)(stylesheet|preconnect)(\s|$)/i.test(frame.attribs.rel ?? "")) ||
+    (frame.tag === "meta" && !("charset" in frame.attribs) && frame.attribs.name !== "viewport"),
+  transformTags: {
+    // Links externos abrem em outra aba; âncoras internas (`#secao`) ficam
+    // como estão, o iframe cuida da rolagem.
+    a: (tagName, attribs) =>
+      /^https?:/i.test(attribs.href ?? "")
+        ? { tagName, attribs: { ...attribs, target: "_blank", rel: "noopener noreferrer" } }
+        : { tagName, attribs },
+  },
+};
+
+export function sanitizeHtmlDocument(html: string): string {
+  return sanitizeHtml(html, DOCUMENT_OPTIONS);
+}

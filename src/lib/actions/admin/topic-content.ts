@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/admin";
-import { sanitizeContentHtml } from "@/lib/admin/sanitize";
+import { sanitizeContentHtml, sanitizeHtmlDocument } from "@/lib/admin/sanitize";
 import {
   revalidateTopicContent,
   revalidateTrailContent,
@@ -35,9 +35,11 @@ async function revalidateTopic(
 const repertoireSchema = z.object({
   title: z.string().trim().min(1, "Informe o título do repertório."),
   contentHtml: z.string(),
+  /** `rich` = editor visual (TipTap); `html` = documento colado, exibido num iframe. */
+  mode: z.enum(["rich", "html"]).default("rich"),
 });
 
-export type RepertoireInput = z.infer<typeof repertoireSchema>;
+export type RepertoireInput = z.input<typeof repertoireSchema>;
 
 /**
  * Um repertório por tópico: o aluno lê o primeiro item (`.limit(1)` nas
@@ -57,7 +59,10 @@ export async function saveRepertoire(
   try {
     const { db } = await assertAdmin();
 
-    const clean = sanitizeContentHtml(parsed.data.contentHtml);
+    const isHtml = parsed.data.mode === "html";
+    const clean = isHtml
+      ? sanitizeHtmlDocument(parsed.data.contentHtml)
+      : sanitizeContentHtml(parsed.data.contentHtml);
 
     const { data: existing } = await db
       .from("repertoire_items")
@@ -69,7 +74,7 @@ export async function saveRepertoire(
 
     const payload = {
       title: parsed.data.title,
-      content_type: "text",
+      content_type: isHtml ? "html" : "text",
       content_html: clean,
       updated_at: new Date().toISOString(),
     };
