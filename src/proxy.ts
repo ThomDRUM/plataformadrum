@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isAdminEmail } from "@/lib/auth/admin-emails";
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -41,6 +42,9 @@ export async function proxy(request: NextRequest) {
 
   // Role-based redirect only from root "/" — students render "/" directly (it's their home page)
   if (pathname === "/") {
+    if (isAdminEmail(session.user.email)) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
     return redirectByRole(request, session.user.id, supabase, supabaseResponse);
   }
 
@@ -81,9 +85,6 @@ async function redirectByRole(
     .eq("id", userId)
     .single();
 
-  if (profile?.role === "admin") {
-    return NextResponse.redirect(new URL("/admin", request.url));
-  }
   if (profile?.role === "mentor") {
     return NextResponse.redirect(new URL("/mentor/projeto", request.url));
   }
