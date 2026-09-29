@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { isAdminEmail } from "@/lib/auth/admin-emails";
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
@@ -20,8 +19,6 @@ export async function login(formData: FormData) {
     return { error: "Sessão não criada. Verifique suas credenciais." };
   }
 
-  if (isAdminEmail(data.user.email)) return { redirectTo: "/admin" };
-
   // Use user from signInWithPassword directly — avoids extra network call
   const { data: profile } = await supabase
     .from("profiles")
@@ -30,7 +27,7 @@ export async function login(formData: FormData) {
     .single();
 
   const role = profile?.role;
-  const redirectTo = role === "mentor" ? "/mentor/projeto" : "/";
+  const redirectTo = role === "admin" ? "/admin" : role === "mentor" ? "/mentor/projeto" : "/";
   return { redirectTo };
 }
 

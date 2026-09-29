@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -59,18 +60,14 @@ export interface AdminUserRow {
 }
 
 /**
- * Quem está com a conta desativada.
- *
- * `profiles` não guarda esse estado: quem não consegue entrar é quem está
- * banido no Auth (`banned_until` no futuro). Precisa de service role — sem a
- * chave, devolve `null` e a coluna mostra "—" em vez de afirmar "Ativo" para
- * todo mundo.
+ * Todas as contas do Auth, memoizado por request. Precisa de service role —
+ * sem a chave (ou com erro na API), devolve `null` para quem chama decidir
+ * como degradar.
  */
-async function fetchActiveByUserId(): Promise<Map<string, boolean> | null> {
+const listAuthUsers = cache(async (): Promise<User[] | null> => {
   try {
     const admin = createAdminClient();
-    const active = new Map<string, boolean>();
-    const now = new Date();
+    const users: User[] = [];
 
     // O Auth pagina em 50 por padrão, o que truncaria a lista em silêncio.
     let page = 1;
@@ -78,19 +75,74 @@ async function fetchActiveByUserId(): Promise<Map<string, boolean> | null> {
       const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
       if (error) return null;
 
-      for (const user of data.users) {
-        const bannedUntil = user.banned_until;
-        active.set(user.id, !bannedUntil || new Date(bannedUntil) <= now);
-      }
+      users.push(...data.users);
 
       if (!data.nextPage) break;
       page = data.nextPage;
     }
 
-    return active;
+    return users;
   } catch {
     return null;
   }
+});
+
+/**
+ * Conta do Auth com este e-mail, ou `null`. A Admin API não tem busca por
+ * e-mail, então varre a lista. Lança quando o Auth não pôde ser consultado —
+ * "não achei" e "não consegui procurar" levam a ações diferentes.
+ */
+export async function findAuthUserByEmail(email: string): Promise<User | null> {
+  const users = await listAuthUsers();
+  if (!users) throw new Error("Não foi possível consultar as contas do Auth.");
+
+  const target = email.trim().toLowerCase();
+  return users.find((u) => u.email?.toLowerCase() === target) ?? null;
+}
+
+/**
+ * Quem está com a conta desativada.
+ *
+ * `profiles` não guarda esse estado: quem não consegue entrar é quem está
+ * banido no Auth (`banned_until` no futuro). Sem service role, devolve `null`
+ * e a coluna mostra "—" em vez de afirmar "Ativo" para todo mundo.
+ */
+async function fetchActiveByUserId(): Promise<Map<string, boolean> | null> {
+  const users = await listAuthUsers();
+  if (!users) return null;
+
+  const now = new Date();
+  return new Map(
+    users.map((user) => {
+      const bannedUntil = user.banned_until;
+      return [user.id, !bannedUntil || new Date(bannedUntil) <= now];
+    })
+  );
+}
+
+export interface AdminAccountRow {
+  id: string;
+  fullName: string;
+  /** `null` quando não deu para consultar o Auth. */
+  email: string | null;
+}
+
+/** Contas com `profiles.role = 'admin'` — quem entra na área de admin. */
+export async function listAdmins(): Promise<AdminAccountRow[]> {
+  const supabase = await readClient();
+
+  const [{ data: profiles }, authUsers] = await Promise.all([
+    supabase.from("profiles").select("id, full_name").eq("role", "admin").order("full_name"),
+    listAuthUsers(),
+  ]);
+
+  const emailById = new Map((authUsers ?? []).map((u) => [u.id, u.email ?? null]));
+
+  return (profiles ?? []).map((p) => ({
+    id: p.id,
+    fullName: p.full_name,
+    email: emailById.get(p.id) ?? null,
+  }));
 }
 
 export async function listUsers(): Promise<AdminUserRow[]> {

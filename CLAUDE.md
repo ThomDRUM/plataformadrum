@@ -27,7 +27,7 @@ There is no test suite configured in this repo.
 
 - `(student)/` — student's own learning trail (`/`, `/aprender`, `/modulo/[module_id]`)
 - `(mentor)/mentor/` — mentor's view into a family's succession project (`aprender`, `alinhamentos`, `cronograma`, `familia`, `mentorados`, `projeto`)
-- `(admin)/admin/` — admin back-office (`dashboard`, `usuarios`, `familias`, `formacoes`, `modulos`, `configuracoes`); guarded by `requireAdmin()` in its layout, reads via service-role (`readClient` in `src/lib/admin/queries.ts`), writes in `src/lib/actions/admin/*`. `src/_disabled/admin-route-group/` is a legacy admin against an old schema, excluded from TS and ESLint — ignore it.
+- `(admin)/admin/` — admin back-office (`dashboard`, `usuarios`, `familias`, `formacoes`, `modulos`, `administradores`, `configuracoes`); access is `profiles.role = 'admin'` only, guarded by `requireAdmin()` in its layout and `assertAdmin()` in every action, reads via service-role (`readClient` in `src/lib/admin/queries.ts`), writes in `src/lib/actions/admin/*`. `src/_disabled/admin-route-group/` is a legacy admin against an old schema, excluded from TS and ESLint — ignore it.
 
 `src/proxy.ts` handles auth-gating (redirects unauthenticated users to `/login`) and role-based redirect from `/` (admin → `/admin`, mentor → `/mentor/projeto`, student renders `/` directly as their home).
 

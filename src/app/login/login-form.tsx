@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { isAdminEmail } from "@/lib/auth/admin-emails";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,11 +39,6 @@ export function LoginForm() {
         return;
       }
 
-      if (isAdminEmail(data.user.email)) {
-        window.location.href = "/admin";
-        return;
-      }
-
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
@@ -52,7 +46,8 @@ export function LoginForm() {
         .single();
 
       const role = profile?.role;
-      window.location.href = role === "mentor" ? "/mentor/projeto" : "/";
+      window.location.href =
+        role === "admin" ? "/admin" : role === "mentor" ? "/mentor/projeto" : "/";
     } catch (err) {
       setError("Erro ao conectar. Tente novamente.");
       setLoading(false);

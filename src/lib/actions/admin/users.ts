@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/admin";
-import { getUserDetail, getUserModuleProgress, getUserEmail } from "@/lib/admin/queries";
+import {
+  findAuthUserByEmail,
+  getUserDetail,
+  getUserModuleProgress,
+  getUserEmail,
+} from "@/lib/admin/queries";
 import type { ActionResult } from "@/lib/admin/types";
 
 const ROLES = ["student", "mentor", "admin"] as const;
@@ -27,6 +32,12 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
 function fail(error: unknown): { ok: false; error: string } {
   return { ok: false, error: error instanceof Error ? error.message : String(error) };
 }
+
+/**
+ * Um admin não tira o próprio acesso: com isso também nunca se chega a zero
+ * admins, porque quem está editando é sempre um admin que continua admin.
+ */
+const SELF_DEMOTION_ERROR = "Você não pode remover seu próprio acesso de administrador.";
 
 export async function createUser(
   input: CreateUserInput
@@ -91,6 +102,7 @@ export async function createUser(
     const linkError = links.length > 0 ? await createMentorLinks(db, links) : null;
 
     revalidatePath("/admin/usuarios");
+    if (role === "admin") revalidatePath("/admin/administradores");
     if (links.length > 0) revalidatePath("/admin/familias");
 
     return {
@@ -150,7 +162,10 @@ export async function updateUserProfile(
   const { fullName, role, studentType, yearlyIntention } = parsed.data;
 
   try {
-    const { db } = await assertAdmin();
+    const { db, userId: currentUserId } = await assertAdmin();
+    if (userId === currentUserId && role !== "admin") {
+      return { ok: false, error: SELF_DEMOTION_ERROR };
+    }
 
     const { error } = await db
       .from("profiles")
@@ -225,7 +240,10 @@ export async function updateUserBasics(
   const { fullName, role, studentType } = parsed.data;
 
   try {
-    const { db } = await assertAdmin();
+    const { db, userId: currentUserId } = await assertAdmin();
+    if (userId === currentUserId && role !== "admin") {
+      return { ok: false, error: SELF_DEMOTION_ERROR };
+    }
 
     const { error } = await db
       .from("profiles")
@@ -241,6 +259,56 @@ export async function updateUserBasics(
     revalidatePath("/admin/usuarios");
     revalidatePath(`/admin/usuarios/${userId}`);
     return { ok: true };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export type GrantAdminOutcome = "promoted" | "already_admin" | "needs_account";
+
+/**
+ * Dá acesso de admin a quem tem este e-mail, trocando `profiles.role` para
+ * `admin`. Sem conta com o e-mail, devolve `needs_account` para o formulário
+ * pedir nome e senha e criar a conta já como admin via `createUser`.
+ */
+export async function grantAdminByEmail(
+  email: string
+): Promise<ActionResult<{ outcome: GrantAdminOutcome }>> {
+  const parsed = z.email("E-mail inválido.").safeParse(email.trim());
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "E-mail inválido." };
+  }
+
+  try {
+    const { db } = await assertAdmin();
+
+    const user = await findAuthUserByEmail(parsed.data);
+    if (!user) return { ok: true, data: { outcome: "needs_account" } };
+
+    const { data: profile, error: readError } = await db
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (readError) return { ok: false, error: readError.message };
+    if (profile?.role === "admin") return { ok: true, data: { outcome: "already_admin" } };
+
+    // Conta no Auth sem perfil (criada por fora do admin): cria o perfil com o
+    // nome dos metadados, ou o próprio e-mail, que dá para corrigir depois.
+    const { error } = profile
+      ? await db.from("profiles").update({ role: "admin", student_type: null }).eq("id", user.id)
+      : await db.from("profiles").insert({
+          id: user.id,
+          role: "admin",
+          full_name: String(user.user_metadata?.full_name ?? "").trim() || parsed.data,
+        });
+
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath("/admin/administradores");
+    revalidatePath("/admin/usuarios");
+    return { ok: true, data: { outcome: "promoted" } };
   } catch (error) {
     return fail(error);
   }

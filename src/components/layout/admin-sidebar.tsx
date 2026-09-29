@@ -11,6 +11,7 @@ import {
   ChevronsUpDown,
   LogOut,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -42,6 +43,7 @@ const navItems = [
   { href: "/admin/familias", label: "Famílias", icon: Home },
   { href: "/admin/formacoes", label: "Formações", icon: Map },
   { href: "/admin/modulos", label: "Módulos", icon: Layers },
+  { href: "/admin/administradores", label: "Administradores", icon: ShieldCheck },
 ];
 
 interface Props extends React.ComponentProps<typeof Sidebar> {
