@@ -1,4 +1,4 @@
-import { ReferenceRepertoirePage } from "@/app/(mentor)/mentor/aprender/_components/reference-views";
+import { redirect } from "next/navigation";
 
 export default async function TrilhaSucedidoRepertoirePage({
   params,
@@ -6,5 +6,5 @@ export default async function TrilhaSucedidoRepertoirePage({
   params: Promise<{ module_id: string; topic_id: string }>;
 }) {
   const { module_id, topic_id } = await params;
-  return <ReferenceRepertoirePage trailType="succeeded" moduleId={module_id} topicId={topic_id} />;
+  redirect(`/mentor/aprender/trilha-sucedido/modulo/${module_id}#topico-${topic_id}`);
 }

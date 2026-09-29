@@ -1,8 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import type { Database } from "@/lib/types/database";
 
-export async function createClient() {
+// Memoizado por request: layout, page e helpers compartilham uma única
+// instância em vez de criar um client (e um cliente GoTrue) por chamada.
+export const createClient = cache(async () => {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(
@@ -25,4 +28,4 @@ export async function createClient() {
       },
     }
   );
-}
+});

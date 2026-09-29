@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Play } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { HtmlDocumentFrame } from "@/components/topic/html-document-frame";
 
 export interface RepertoireItemData {
   id: string;
@@ -92,10 +93,21 @@ export function RepertoireBlock({ userId, topicId, item, viewed, hasExercise, on
 
       {item.content_type === "text" && (
         item.content_html ? (
+          // `tiptap-content` é o que dá estilo a título, lista, citação e
+          // imagem — sem ela o HTML do editor sai sem hierarquia nenhuma,
+          // porque o preflight do Tailwind zera listas e headings.
           <div
-            className="text-base text-foreground/80 leading-relaxed space-y-3"
+            className="tiptap-content text-base text-foreground/80"
             dangerouslySetInnerHTML={{ __html: item.content_html }}
           />
+        ) : (
+          <p className="text-sm text-muted-foreground/60">Conteúdo em breve.</p>
+        )
+      )}
+
+      {item.content_type === "html" && (
+        item.content_html ? (
+          <HtmlDocumentFrame html={item.content_html} />
         ) : (
           <p className="text-sm text-muted-foreground/60">Conteúdo em breve.</p>
         )

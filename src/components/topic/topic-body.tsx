@@ -45,6 +45,9 @@ export function TopicBody({
   function handleRepertoireAdvance() {
     setRepertoireViewed(true);
     if (!hasExercise) {
+      // Progresso recém-gravado: invalida o Router Cache antes de navegar para
+      // a próxima tela não vir de uma cópia em cache (staleTimes, next.config).
+      router.refresh();
       router.push(nextHref);
     }
   }

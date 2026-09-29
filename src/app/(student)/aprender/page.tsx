@@ -1,24 +1,18 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionProfile } from "@/lib/auth/session";
 import { getStudentAccessData } from "@/lib/student/access";
+import { isTopicDone } from "@/lib/student/topic-status";
 
 export default async function AprenderEntryPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("trail_id")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile?.trail_id) redirect("/");
+  const profile = await getSessionProfile();
+  if (!profile?.trailId) redirect("/");
 
   const { modules, topicsByModule, getTopicStatus } = await getStudentAccessData(
     supabase,
-    user.id,
-    profile.trail_id
+    profile.id,
+    profile.trailId
   );
 
   const unlockedModules = modules.filter((m) => m.unlocked);
@@ -26,7 +20,7 @@ export default async function AprenderEntryPage() {
 
   for (const mod of unlockedModules) {
     const topics = topicsByModule.get(mod.id) ?? [];
-    const incomplete = topics.find((t) => getTopicStatus(t.id) !== "completed");
+    const incomplete = topics.find((t) => !isTopicDone(getTopicStatus(t.id)));
     if (incomplete) redirect(`/modulo/${mod.id}/topico/${incomplete.id}`);
   }
 

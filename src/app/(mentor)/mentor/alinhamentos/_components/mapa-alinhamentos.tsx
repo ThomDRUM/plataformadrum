@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { Frame, FrameHeader, FrameTitle, FrameDescription, FramePanel } from "@/components/reui/frame";
 import { PREMISSAS_TEXTO, FASES_ALINHAMENTO, type AlinhamentoItem } from "@/lib/mentor/mapa-alinhamentos";
 
 function AlinhamentoCard({ item }: { item: AlinhamentoItem }) {
   return (
-    <div className="border border-border rounded-lg p-4 space-y-2.5">
+    <div className="space-y-2.5 rounded-lg border border-border p-4">
       <p className="text-sm font-medium text-foreground">
         {item.numero}. {item.titulo}
       </p>
@@ -19,19 +20,19 @@ function AlinhamentoCard({ item }: { item: AlinhamentoItem }) {
         {item.quando}
       </p>
       {item.perguntas && (
-        <p className="text-xs text-muted-foreground leading-relaxed">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           <span className="font-semibold text-foreground/70">Perguntas: </span>
           {item.perguntas}
         </p>
       )}
       {item.conversa && (
-        <p className="text-xs text-muted-foreground leading-relaxed">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           <span className="font-semibold text-foreground/70">Conversa: </span>
           {item.conversa}
         </p>
       )}
       {item.porque && (
-        <p className="text-xs text-muted-foreground leading-relaxed">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           <span className="font-semibold text-foreground/70">Por quê: </span>
           {item.porque}
         </p>
@@ -40,29 +41,31 @@ function AlinhamentoCard({ item }: { item: AlinhamentoItem }) {
   );
 }
 
-function AccordionItem({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-
+function MapaCollapsible({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
+    <Collapsible className="overflow-hidden rounded-lg border border-border">
+      <CollapsibleTrigger
+        render={
+          <button
+            type="button"
+            className="group flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30"
+          />
+        }
       >
         <span className="text-sm font-medium text-foreground">{titulo}</span>
-        {open ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
-      </button>
-
-      {open && (
-        <div className="px-4 pb-4 pt-1 border-t border-border space-y-3">
-          {children}
-        </div>
-      )}
-    </div>
+        <ChevronRightIcon
+          aria-hidden="true"
+          className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-90"
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0">
+        <div className="space-y-3 border-t border-border px-4 pt-3 pb-4">{children}</div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
-function FaseAccordionContent({ fase }: { fase: (typeof FASES_ALINHAMENTO)[number] }) {
+function FaseContent({ fase }: { fase: (typeof FASES_ALINHAMENTO)[number] }) {
   return (
     <>
       {fase.alinhamentos.map((item) => (
@@ -70,14 +73,19 @@ function FaseAccordionContent({ fase }: { fase: (typeof FASES_ALINHAMENTO)[numbe
       ))}
 
       {fase.blocoAdicionalTitulo && (
-        <div className="rounded-lg bg-muted/30 p-4 space-y-2">
+        <div className="space-y-2 rounded-lg bg-muted/30 p-4">
           <p className="text-sm font-medium text-foreground">{fase.blocoAdicionalTitulo}</p>
           {typeof fase.blocoAdicionalTexto === "string" ? (
-            <p className="text-xs text-muted-foreground leading-relaxed">{fase.blocoAdicionalTexto}</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">{fase.blocoAdicionalTexto}</p>
           ) : (
             fase.blocoAdicionalTexto.map((bloco, i) => (
-              <p key={i} className="text-xs text-muted-foreground leading-relaxed">
-                {bloco.label && <span className="font-semibold text-foreground/70">{bloco.label}{bloco.texto ? ": " : ""}</span>}
+              <p key={i} className="text-xs leading-relaxed text-muted-foreground">
+                {bloco.label && (
+                  <span className="font-semibold text-foreground/70">
+                    {bloco.label}
+                    {bloco.texto ? ": " : ""}
+                  </span>
+                )}
                 {bloco.texto}
               </p>
             ))
@@ -90,22 +98,28 @@ function FaseAccordionContent({ fase }: { fase: (typeof FASES_ALINHAMENTO)[numbe
 
 export function MapaAlinhamentos() {
   return (
-    <section className="space-y-5">
-      <h2 className="text-xl font-semibold tracking-tight text-foreground">Mapa de Alinhamentos</h2>
+    <Frame spacing="sm">
+      <FrameHeader>
+        <FrameTitle>Mapa de Alinhamentos</FrameTitle>
+        <FrameDescription>A sequência de conversas estruturadas da metodologia DRUM.</FrameDescription>
+      </FrameHeader>
+      <FramePanel>
+        <div className="space-y-2">
+          <MapaCollapsible titulo="Premissas">
+            {PREMISSAS_TEXTO.map((p, i) => (
+              <p key={i} className="text-sm leading-relaxed text-muted-foreground">
+                {p}
+              </p>
+            ))}
+          </MapaCollapsible>
 
-      <div className="space-y-2">
-        <AccordionItem titulo="Premissas">
-          {PREMISSAS_TEXTO.map((p, i) => (
-            <p key={i} className="text-sm text-muted-foreground leading-relaxed">{p}</p>
+          {FASES_ALINHAMENTO.map((fase) => (
+            <MapaCollapsible key={fase.fase} titulo={fase.titulo}>
+              <FaseContent fase={fase} />
+            </MapaCollapsible>
           ))}
-        </AccordionItem>
-
-        {FASES_ALINHAMENTO.map((fase) => (
-          <AccordionItem key={fase.fase} titulo={fase.titulo}>
-            <FaseAccordionContent fase={fase} />
-          </AccordionItem>
-        ))}
-      </div>
-    </section>
+        </div>
+      </FramePanel>
+    </Frame>
   );
 }

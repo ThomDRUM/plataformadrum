@@ -1,0 +1,1072 @@
+import "server-only";
+
+import { cache } from "react";
+import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  buildStudentAccessData,
+  getCachedTrailContent,
+  getUserProgress,
+  type TopicStatus,
+} from "@/lib/student/access";
+
+/**
+ * Client de leitura da área de admin.
+ *
+ * Prefere o service-role: o admin, por definição, enxerga tudo, e depender de
+ * RLS aqui tem um modo de falha ruim — uma policy restritiva devolve lista
+ * vazia em vez de erro, e a tela parece quebrada sem dizer por quê. Todas as
+ * chamadas ficam atrás de `requireAdmin()` no layout de `(admin)`.
+ *
+ * Sem a chave configurada, cai para o client da sessão: a área continua
+ * navegável (dentro do que a RLS permitir) em vez de ficar totalmente
+ * inacessível.
+ */
+export const readClient = cache(async () => {
+  try {
+    return createAdminClient();
+  } catch {
+    return await createClient();
+  }
+});
+
+/**
+ * O e-mail vive em `auth.users`, não em `profiles`, então só a service role
+ * enxerga. Falha em silêncio: sem a chave configurada a tela ainda funciona,
+ * só não mostra o e-mail.
+ */
+export async function getUserEmail(userId: string): Promise<string | null> {
+  try {
+    const { data } = await createAdminClient().auth.admin.getUserById(userId);
+    return data.user?.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Leituras da área de admin. As escritas ficam em `src/lib/actions/admin/*`.
+
+export interface AdminUserRow {
+  id: string;
+  fullName: string;
+  role: string;
+  studentType: string | null;
+  trailTitle: string | null;
+  familyName: string | null;
+  projectId: string | null;
+  /** `null` quando não deu para consultar o Auth — ver `fetchActiveByUserId`. */
+  isActive: boolean | null;
+}
+
+/**
+ * Todas as contas do Auth, memoizado por request. Precisa de service role —
+ * sem a chave (ou com erro na API), devolve `null` para quem chama decidir
+ * como degradar.
+ */
+const listAuthUsers = cache(async (): Promise<User[] | null> => {
+  try {
+    const admin = createAdminClient();
+    const users: User[] = [];
+
+    // O Auth pagina em 50 por padrão, o que truncaria a lista em silêncio.
+    let page = 1;
+    for (;;) {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (error) return null;
+
+      users.push(...data.users);
+
+      if (!data.nextPage) break;
+      page = data.nextPage;
+    }
+
+    return users;
+  } catch {
+    return null;
+  }
+});
+
+/**
+ * Conta do Auth com este e-mail, ou `null`. A Admin API não tem busca por
+ * e-mail, então varre a lista. Lança quando o Auth não pôde ser consultado —
+ * "não achei" e "não consegui procurar" levam a ações diferentes.
+ */
+export async function findAuthUserByEmail(email: string): Promise<User | null> {
+  const users = await listAuthUsers();
+  if (!users) throw new Error("Não foi possível consultar as contas do Auth.");
+
+  const target = email.trim().toLowerCase();
+  return users.find((u) => u.email?.toLowerCase() === target) ?? null;
+}
+
+/**
+ * Quem está com a conta desativada.
+ *
+ * `profiles` não guarda esse estado: quem não consegue entrar é quem está
+ * banido no Auth (`banned_until` no futuro). Sem service role, devolve `null`
+ * e a coluna mostra "—" em vez de afirmar "Ativo" para todo mundo.
+ */
+async function fetchActiveByUserId(): Promise<Map<string, boolean> | null> {
+  const users = await listAuthUsers();
+  if (!users) return null;
+
+  const now = new Date();
+  return new Map(
+    users.map((user) => {
+      const bannedUntil = user.banned_until;
+      return [user.id, !bannedUntil || new Date(bannedUntil) <= now];
+    })
+  );
+}
+
+export interface AdminAccountRow {
+  id: string;
+  fullName: string;
+  /** `null` quando não deu para consultar o Auth. */
+  email: string | null;
+}
+
+/** Contas com `profiles.role = 'admin'` — quem entra na área de admin. */
+export async function listAdmins(): Promise<AdminAccountRow[]> {
+  const supabase = await readClient();
+
+  const [{ data: profiles }, authUsers] = await Promise.all([
+    supabase.from("profiles").select("id, full_name").eq("role", "admin").order("full_name"),
+    listAuthUsers(),
+  ]);
+
+  const emailById = new Map((authUsers ?? []).map((u) => [u.id, u.email ?? null]));
+
+  return (profiles ?? []).map((p) => ({
+    id: p.id,
+    fullName: p.full_name,
+    email: emailById.get(p.id) ?? null,
+  }));
+}
+
+export async function listUsers(): Promise<AdminUserRow[]> {
+  const supabase = await readClient();
+
+  const [{ data: profiles }, { data: trails }, { data: projects }, activeByUser] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, full_name, role, student_type, trail_id, project_id")
+        .order("full_name"),
+      supabase.from("trails").select("id, title"),
+      supabase.from("projects").select("id, families(name)"),
+      fetchActiveByUserId(),
+    ]);
+
+  // `profiles.trail_id` não tem FK declarada no banco, então o join aninhado do
+  // PostgREST não funciona nesse campo — resolvemos em memória.
+  const trailById = new Map((trails ?? []).map((t) => [t.id, t.title]));
+  const familyByProject = new Map(
+    (projects ?? []).map((p) => [
+      p.id,
+      (p.families as { name: string } | null)?.name ?? null,
+    ])
+  );
+
+  return (profiles ?? []).map((p) => ({
+    id: p.id,
+    fullName: p.full_name,
+    role: p.role,
+    studentType: p.student_type,
+    trailTitle: p.trail_id ? trailById.get(p.trail_id) ?? null : null,
+    familyName: p.project_id ? familyByProject.get(p.project_id) ?? null : null,
+    projectId: p.project_id,
+    // Perfil sem conta no Auth não entra na plataforma, então conta como inativo.
+    isActive: activeByUser ? activeByUser.get(p.id) ?? false : null,
+  }));
+}
+
+/**
+ * Opções dos selects do formulário de novo usuário. Fica aqui porque duas
+ * telas montam esse formulário: a rota `/admin/usuarios/novo` e o sheet que
+ * abre de dentro da lista.
+ */
+export async function listUserFormOptions() {
+  const supabase = await readClient();
+
+  const [{ data: trails }, { data: families }, { data: profiles }] = await Promise.all([
+    supabase.from("trails").select("id, title, trail_type").order("title"),
+    supabase.from("families").select("id, name, projects(id)").order("name"),
+    supabase
+      .from("profiles")
+      .select("id, full_name, role, project_id")
+      .in("role", ["student", "mentor"])
+      .order("full_name"),
+  ]);
+
+  // Uma família pode ter mais de um projeto, então o mapa é projeto → família.
+  const familyByProject = new Map<string, string>();
+  for (const family of families ?? []) {
+    for (const project of (family.projects as { id: string }[] | null) ?? []) {
+      familyByProject.set(project.id, family.name);
+    }
+  }
+
+  return {
+    trails: trails ?? [],
+    families: (families ?? []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      projectId: (f.projects as { id: string }[] | null)?.[0]?.id ?? null,
+    })),
+    mentors: (profiles ?? [])
+      .filter((p) => p.role === "mentor")
+      .map((p) => ({ id: p.id, fullName: p.full_name })),
+    /**
+     * Mentorados com o projeto a que pertencem: é o projeto — não a pessoa — que
+     * recebe o mentor, então quem está sem família não pode ser vinculado ainda.
+     */
+    students: (profiles ?? [])
+      .filter((p) => p.role === "student")
+      .map((p) => ({
+        id: p.id,
+        fullName: p.full_name,
+        projectId: p.project_id,
+        familyName: p.project_id ? familyByProject.get(p.project_id) ?? null : null,
+      })),
+  };
+}
+
+export async function getUserDetail(userId: string) {
+  const supabase = await readClient();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select(
+      "id, full_name, role, student_type, trail_id, project_id, yearly_intention, identified_need_summary"
+    )
+    .eq("id", userId)
+    .single();
+
+  if (!profile) return null;
+
+  const [{ data: trails }, { data: families }, { data: mentorProjects }] = await Promise.all([
+    supabase.from("trails").select("id, title, trail_type").order("title"),
+    supabase.from("families").select("id, name, projects(id, name)").order("name"),
+    supabase.from("mentor_projects").select("id, project_id").eq("mentor_id", userId),
+  ]);
+
+  return {
+    profile,
+    trails: trails ?? [],
+    families: (families ?? []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      projects: (f.projects as { id: string; name: string }[] | null) ?? [],
+    })),
+    mentorProjectIds: (mentorProjects ?? []).map((mp) => mp.project_id),
+  };
+}
+
+export interface AdminAnswerRow {
+  questionId: string;
+  questionText: string;
+  answerText: string | null;
+  /** `null` = rascunho autosalvo que o aluno ainda não enviou. */
+  submittedAt: string | null;
+  mentorNotes: { mentorName: string; note: string }[];
+}
+
+export interface AdminTopicProgressRow {
+  id: string;
+  title: string;
+  orderIndex: number;
+  status: TopicStatus;
+  hasExercise: boolean;
+  /** "Leitura concluída": o aluno avançou pelo repertório do tópico. */
+  repertoireViewed: boolean;
+  exerciseCompleted: boolean;
+  exerciseTitle: string | null;
+  /** Vazio quando o tópico não tem exercício. */
+  answers: AdminAnswerRow[];
+}
+
+export interface ModuleAccessRow {
+  moduleId: string;
+  title: string;
+  orderIndex: number;
+  unlockDate: string | null;
+  forceUnlocked: boolean;
+  /** Regra efetiva: liberação imediata OU (data já passou E módulo anterior concluído). */
+  unlocked: boolean;
+  topics: AdminTopicProgressRow[];
+}
+
+/**
+ * Módulos da formação do usuário com o estado de liberação e a evolução dele
+ * em cada tópico (leitura, exercício e respostas). Espelha `getMentoradoDetail`
+ * da área do mentor, mas sem o guard de `mentor_projects` e lendo com
+ * service-role: o admin vê qualquer aluno e as notas de todos os mentores.
+ */
+export async function getUserModuleProgress(
+  userId: string,
+  trailId: string | null
+): Promise<ModuleAccessRow[]> {
+  if (!trailId) return [];
+
+  const supabase = await readClient();
+  const content = await getCachedTrailContent(supabase, trailId);
+  if (!content.trail) return [];
+
+  const exerciseIds = content.exercises.map((e) => e.id);
+
+  const [userProgress, questionsRes] = await Promise.all([
+    getUserProgress(
+      supabase,
+      userId,
+      content.modules.map((m) => m.id),
+      content.topics.map((t) => t.id)
+    ),
+    exerciseIds.length
+      ? supabase
+          .from("exercise_questions")
+          .select(
+            "id, exercise_id, question_text, order_index, exercise_answers(id, question_id, answer_text, submitted_at, mentor_answer_notes(note, profiles(full_name)))"
+          )
+          .in("exercise_id", exerciseIds)
+          .eq("exercise_answers.user_id", userId)
+          .order("order_index")
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const { modules, topicsByModule, hasExercise, getTopicStatus } = buildStudentAccessData(
+    content,
+    userProgress
+  );
+
+  const accessByModule = new Map(userProgress.access.map((a) => [a.module_id, a]));
+  const progressByTopic = new Map(userProgress.progress.map((p) => [p.topic_id, p]));
+  const exerciseByTopic = new Map(content.exercises.map((e) => [e.topic_id, e]));
+
+  const questions = questionsRes.data ?? [];
+  const questionsByExercise = new Map<string, typeof questions>();
+  for (const q of questions) {
+    const list = questionsByExercise.get(q.exercise_id) ?? [];
+    list.push(q);
+    questionsByExercise.set(q.exercise_id, list);
+  }
+
+  return modules.map((mod) => {
+    const access = accessByModule.get(mod.id);
+    const topics = topicsByModule.get(mod.id) ?? [];
+
+    return {
+      moduleId: mod.id,
+      title: mod.title,
+      orderIndex: mod.orderIndex,
+      unlockDate: access?.unlock_date ?? null,
+      forceUnlocked: access?.force_unlocked === true,
+      unlocked: mod.unlocked,
+      topics: topics.map((topic) => {
+        const exercise = exerciseByTopic.get(topic.id);
+        const progress = progressByTopic.get(topic.id);
+        const exerciseQuestions = exercise ? questionsByExercise.get(exercise.id) ?? [] : [];
+
+        return {
+          id: topic.id,
+          title: topic.title,
+          orderIndex: topic.orderIndex,
+          status: getTopicStatus(topic.id),
+          hasExercise: hasExercise(topic.id),
+          repertoireViewed: progress?.repertoire_viewed === true,
+          exerciseCompleted: progress?.exercise_completed === true,
+          exerciseTitle: exercise?.title ?? null,
+          answers: exerciseQuestions.map((q) => {
+            // O filtro `exercise_answers.user_id` já limita a uma resposta
+            // por questão (unique question_id+user_id).
+            const answer = (q.exercise_answers ?? [])[0];
+            return {
+              questionId: q.id,
+              questionText: q.question_text,
+              answerText: answer?.answer_text ?? null,
+              submittedAt: answer?.submitted_at ?? null,
+              mentorNotes: (answer?.mentor_answer_notes ?? []).map((n) => ({
+                mentorName: n.profiles?.full_name ?? "Mentor",
+                note: n.note,
+              })),
+            };
+          }),
+        };
+      }),
+    };
+  });
+}
+
+export interface AdminFamilyRow {
+  id: string;
+  name: string;
+  businessName: string | null;
+  projects: { id: string; name: string; status: string }[];
+  memberCount: number;
+}
+
+export async function listFamilies(): Promise<AdminFamilyRow[]> {
+  const supabase = await readClient();
+
+  const { data } = await supabase
+    .from("families")
+    .select("id, name, business_name, projects(id, name, status), family_members(count)")
+    .order("name");
+
+  return (data ?? []).map((f) => ({
+    id: f.id,
+    name: f.name,
+    businessName: f.business_name,
+    projects: (f.projects as { id: string; name: string; status: string }[] | null) ?? [],
+    memberCount: (f.family_members as unknown as { count: number }[] | null)?.[0]?.count ?? 0,
+  }));
+}
+
+export interface FamilyOverview {
+  family: {
+    id: string;
+    name: string;
+    businessName: string;
+    history: string;
+    mission: string;
+    vision: string;
+    values: string;
+  };
+  projects: {
+    id: string;
+    name: string;
+    status: string;
+    startDate: string | null;
+    endDate: string | null;
+    durationMonths: number | null;
+  }[];
+  students: { id: string; name: string; studentType: string | null }[];
+  mentors: { id: string; name: string }[];
+  members: {
+    id: string;
+    name: string;
+    familyRole: string;
+    businessRole: string;
+    generation: number;
+    worksInBusiness: boolean;
+  }[];
+}
+
+/**
+ * Retrato completo da família para leitura — alimenta o dialog de informações
+ * aberto da listagem.
+ *
+ * Difere de `getFamilyDetail` em dois pontos: traz `family_members` (a árvore
+ * genealógica, que a tela de edição não usa) e dispensa `allProfiles` — aquela
+ * lista existe só para popular os selects de vínculo, e são todos os perfis da
+ * plataforma.
+ */
+export async function getFamilyOverview(familyId: string): Promise<FamilyOverview | null> {
+  const supabase = await readClient();
+
+  const { data: family } = await supabase
+    .from("families")
+    .select("id, name, business_name, history, mission, vision, values")
+    .eq("id", familyId)
+    .single();
+
+  if (!family) return null;
+
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("id, name, status, start_date, end_date, duration_months")
+    .eq("family_id", familyId)
+    .order("created_at");
+
+  const projectIds = (projects ?? []).map((p) => p.id);
+
+  const [{ data: linkedProfiles }, { data: mentorLinks }, { data: members }] =
+    await Promise.all([
+      projectIds.length
+        ? supabase
+            .from("profiles")
+            .select("id, full_name, role, student_type")
+            .in("project_id", projectIds)
+            .order("full_name")
+        : Promise.resolve({ data: [] as never[] }),
+      projectIds.length
+        ? supabase
+            .from("mentor_projects")
+            .select("mentor_id, profiles(id, full_name)")
+            .in("project_id", projectIds)
+        : Promise.resolve({ data: [] as never[] }),
+      supabase
+        .from("family_members")
+        .select("id, name, family_role, business_role, generation, works_in_business")
+        .eq("family_id", familyId)
+        // Ordem editorial da árvore, não alfabética — ver CLAUDE.md.
+        .order("generation")
+        .order("order_index"),
+    ]);
+
+  return {
+    family: {
+      id: family.id,
+      name: family.name,
+      businessName: family.business_name,
+      history: family.history,
+      mission: family.mission,
+      vision: family.vision,
+      values: family.values,
+    },
+    projects: (projects ?? []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      status: p.status,
+      startDate: p.start_date,
+      endDate: p.end_date,
+      durationMonths: p.duration_months,
+    })),
+    students: (linkedProfiles ?? [])
+      .filter((p) => p.role === "student")
+      .map((p) => ({ id: p.id, name: p.full_name, studentType: p.student_type })),
+    mentors: (mentorLinks ?? []).map((m) => ({
+      id: m.mentor_id,
+      name: (m.profiles as { full_name: string } | null)?.full_name ?? "—",
+    })),
+    members: (members ?? []).map((m) => ({
+      id: m.id,
+      name: m.name,
+      familyRole: m.family_role,
+      businessRole: m.business_role,
+      generation: m.generation,
+      worksInBusiness: m.works_in_business,
+    })),
+  };
+}
+
+export async function getFamilyDetail(familyId: string) {
+  const supabase = await readClient();
+
+  const { data: family } = await supabase
+    .from("families")
+    .select("id, name, business_name, history, mission, vision, values")
+    .eq("id", familyId)
+    .single();
+
+  if (!family) return null;
+
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("id, name, status, start_date, end_date, duration_months")
+    .eq("family_id", familyId)
+    .order("created_at");
+
+  const projectIds = (projects ?? []).map((p) => p.id);
+
+  const [{ data: students }, { data: mentorLinks }, { data: allProfiles }] = await Promise.all([
+    projectIds.length
+      ? supabase
+          .from("profiles")
+          .select("id, full_name, role, student_type, project_id")
+          .in("project_id", projectIds)
+      : Promise.resolve({ data: [] as never[] }),
+    projectIds.length
+      ? supabase
+          .from("mentor_projects")
+          .select("id, mentor_id, project_id, profiles(id, full_name)")
+          .in("project_id", projectIds)
+      : Promise.resolve({ data: [] as never[] }),
+    supabase.from("profiles").select("id, full_name, role, project_id").order("full_name"),
+  ]);
+
+  return {
+    family,
+    projects: projects ?? [],
+    students: (students ?? []).filter((p) => p.role === "student"),
+    mentorLinks: (mentorLinks ?? []).map((m) => ({
+      id: m.id,
+      mentorId: m.mentor_id,
+      projectId: m.project_id,
+      name: (m.profiles as { full_name: string } | null)?.full_name ?? "—",
+    })),
+    allProfiles: allProfiles ?? [],
+  };
+}
+
+export interface AdminTrailRow {
+  id: string;
+  title: string;
+  trailType: string;
+  intention: string | null;
+  why: string | null;
+  moduleCount: number;
+  /** Perfis com esta formação atribuída — é o que trava a exclusão. */
+  userCount: number;
+}
+
+export async function listTrails(): Promise<AdminTrailRow[]> {
+  const supabase = await readClient();
+
+  const [{ data: trails }, { data: profiles }] = await Promise.all([
+    supabase
+      .from("trails")
+      .select("id, title, trail_type, intention, why, trail_modules(count)")
+      .order("title"),
+    // `profiles.trail_id` não tem FK declarada no banco, então o join aninhado
+    // do PostgREST não funciona nesse campo — contamos em memória (mesmo caso
+    // de `listUsers`).
+    supabase.from("profiles").select("trail_id"),
+  ]);
+
+  const usersByTrail = new Map<string, number>();
+  for (const profile of profiles ?? []) {
+    if (!profile.trail_id) continue;
+    usersByTrail.set(profile.trail_id, (usersByTrail.get(profile.trail_id) ?? 0) + 1);
+  }
+
+  return (trails ?? []).map((t) => ({
+    id: t.id,
+    title: t.title,
+    trailType: t.trail_type,
+    intention: t.intention,
+    why: t.why,
+    moduleCount: (t.trail_modules as unknown as { count: number }[] | null)?.[0]?.count ?? 0,
+    userCount: usersByTrail.get(t.id) ?? 0,
+  }));
+}
+
+export interface TrailOverview {
+  trail: {
+    id: string;
+    title: string;
+    trailType: string;
+    intention: string | null;
+    why: string | null;
+  };
+  modules: { id: string; title: string; internalName: string; topicCount: number }[];
+  users: { id: string; name: string; role: string; studentType: string | null }[];
+}
+
+/**
+ * Retrato completo da formação para leitura — alimenta o dialog de informações
+ * aberto da listagem.
+ *
+ * Difere de `getTrailDetail` em dois pontos: traz quem usa a formação e a
+ * contagem de tópicos de cada módulo, e dispensa `allModules` — aquela lista
+ * existe só para o select que adiciona módulos na tela da formação.
+ */
+export async function getTrailOverview(trailId: string): Promise<TrailOverview | null> {
+  const supabase = await readClient();
+
+  const { data: trail } = await supabase
+    .from("trails")
+    .select("id, title, trail_type, intention, why")
+    .eq("id", trailId)
+    .single();
+
+  if (!trail) return null;
+
+  const [{ data: trailModules }, { data: users }] = await Promise.all([
+    supabase
+      .from("trail_modules")
+      .select("order_index, modules(id, title, internal_name)")
+      .eq("trail_id", trailId)
+      // Ordem editorial da formação, não alfabética — ver CLAUDE.md.
+      .order("order_index"),
+    supabase
+      .from("profiles")
+      .select("id, full_name, role, student_type")
+      .eq("trail_id", trailId)
+      .order("full_name"),
+  ]);
+
+  const modules = (trailModules ?? []).flatMap((tm) => {
+    const mod = tm.modules as { id: string; title: string; internal_name: string } | null;
+    return mod ? [mod] : [];
+  });
+
+  // Contagem de tópicos numa consulta própria: agregado aninhado em dois níveis
+  // (`modules(topics(count))`) não é confiável no PostgREST.
+  const { data: topics } = modules.length
+    ? await supabase
+        .from("topics")
+        .select("module_id")
+        .in(
+          "module_id",
+          modules.map((m) => m.id)
+        )
+    : { data: [] as { module_id: string }[] };
+
+  const topicsByModule = new Map<string, number>();
+  for (const topic of topics ?? []) {
+    topicsByModule.set(topic.module_id, (topicsByModule.get(topic.module_id) ?? 0) + 1);
+  }
+
+  return {
+    trail: {
+      id: trail.id,
+      title: trail.title,
+      trailType: trail.trail_type,
+      intention: trail.intention,
+      why: trail.why,
+    },
+    modules: modules.map((mod) => ({
+      id: mod.id,
+      title: mod.title,
+      internalName: mod.internal_name,
+      topicCount: topicsByModule.get(mod.id) ?? 0,
+    })),
+    users: (users ?? []).map((u) => ({
+      id: u.id,
+      name: u.full_name,
+      role: u.role,
+      studentType: u.student_type,
+    })),
+  };
+}
+
+export async function getTrailDetail(trailId: string) {
+  const supabase = await readClient();
+
+  const { data: trail } = await supabase
+    .from("trails")
+    .select("id, title, trail_type, intention, why")
+    .eq("id", trailId)
+    .single();
+
+  if (!trail) return null;
+
+  const [{ data: trailModules }, { data: allModules }] = await Promise.all([
+    supabase
+      .from("trail_modules")
+      .select("id, order_index, module_id, modules(id, title, internal_name)")
+      .eq("trail_id", trailId)
+      .order("order_index"),
+    supabase.from("modules").select("id, title, internal_name").order("title"),
+  ]);
+
+  return {
+    trail,
+    modules: (trailModules ?? []).flatMap((tm) => {
+      const mod = tm.modules as { id: string; title: string; internal_name: string } | null;
+      if (!mod) return [];
+      return [
+        {
+          linkId: tm.id,
+          moduleId: mod.id,
+          title: mod.title,
+          internalName: mod.internal_name,
+          orderIndex: tm.order_index,
+        },
+      ];
+    }),
+    allModules: allModules ?? [],
+  };
+}
+
+export interface AdminModuleRow {
+  id: string;
+  title: string;
+  internalName: string;
+  intention: string | null;
+  why: string | null;
+  topicCount: number;
+  /** Formações que incluem este módulo — vazio significa que ninguém o vê. */
+  trailTitles: string[];
+}
+
+export async function listModules(): Promise<AdminModuleRow[]> {
+  const supabase = await readClient();
+
+  const { data } = await supabase
+    .from("modules")
+    .select(
+      "id, title, internal_name, intention, why, topics(count), trail_modules(trails(title))"
+    )
+    .order("title");
+
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    title: m.title,
+    internalName: m.internal_name,
+    intention: m.intention,
+    why: m.why,
+    topicCount: (m.topics as unknown as { count: number }[] | null)?.[0]?.count ?? 0,
+    trailTitles: ((m.trail_modules as { trails: { title: string } | null }[] | null) ?? [])
+      .map((tm) => tm.trails?.title)
+      .filter((t): t is string => Boolean(t)),
+  }));
+}
+
+export interface ModuleOverview {
+  module: {
+    id: string;
+    title: string;
+    internalName: string;
+    intention: string | null;
+    why: string | null;
+  };
+  topics: {
+    id: string;
+    title: string;
+    learningObjective: string | null;
+    hasRepertoire: boolean;
+    hasExercise: boolean;
+  }[];
+  trails: { id: string; title: string; trailType: string }[];
+}
+
+/**
+ * Retrato completo do módulo para leitura — alimenta o dialog de informações
+ * aberto da listagem.
+ *
+ * Difere de `getModuleDetail` por trazer as formações que usam o módulo (a
+ * tela de edição não precisa) e por dispensar `orderIndex`, que só serve aos
+ * botões de reordenar.
+ */
+export async function getModuleOverview(moduleId: string): Promise<ModuleOverview | null> {
+  const supabase = await readClient();
+
+  const { data: mod } = await supabase
+    .from("modules")
+    .select("id, title, internal_name, intention, why")
+    .eq("id", moduleId)
+    .single();
+
+  if (!mod) return null;
+
+  const [{ data: topics }, { data: trailLinks }] = await Promise.all([
+    supabase
+      .from("topics")
+      .select(
+        "id, title, learning_objective, repertoire_items(count), exercises(count)"
+      )
+      .eq("module_id", moduleId)
+      // Ordem editorial do módulo, não alfabética — ver CLAUDE.md.
+      .order("order_index"),
+    supabase
+      .from("trail_modules")
+      .select("trails(id, title, trail_type)")
+      .eq("module_id", moduleId),
+  ]);
+
+  return {
+    module: {
+      id: mod.id,
+      title: mod.title,
+      internalName: mod.internal_name,
+      intention: mod.intention,
+      why: mod.why,
+    },
+    topics: (topics ?? []).map((t) => ({
+      id: t.id,
+      title: t.title,
+      learningObjective: t.learning_objective,
+      hasRepertoire:
+        ((t.repertoire_items as unknown as { count: number }[] | null)?.[0]?.count ?? 0) > 0,
+      hasExercise:
+        ((t.exercises as unknown as { count: number }[] | null)?.[0]?.count ?? 0) > 0,
+    })),
+    trails: (trailLinks ?? []).flatMap((tm) => {
+      const trail = tm.trails as { id: string; title: string; trail_type: string } | null;
+      if (!trail) return [];
+      return [{ id: trail.id, title: trail.title, trailType: trail.trail_type }];
+    }),
+  };
+}
+
+export async function getModuleDetail(moduleId: string) {
+  const supabase = await readClient();
+
+  const { data: mod } = await supabase
+    .from("modules")
+    .select("id, title, internal_name, intention, why")
+    .eq("id", moduleId)
+    .single();
+
+  if (!mod) return null;
+
+  const { data: topics } = await supabase
+    .from("topics")
+    .select("id, title, learning_objective, order_index, repertoire_items(count), exercises(count)")
+    .eq("module_id", moduleId)
+    .order("order_index");
+
+  return {
+    module: mod,
+    topics: (topics ?? []).map((t) => ({
+      id: t.id,
+      title: t.title,
+      learningObjective: t.learning_objective,
+      orderIndex: t.order_index,
+      hasRepertoire:
+        ((t.repertoire_items as unknown as { count: number }[] | null)?.[0]?.count ?? 0) > 0,
+      hasExercise: ((t.exercises as unknown as { count: number }[] | null)?.[0]?.count ?? 0) > 0,
+    })),
+  };
+}
+
+export async function getTopicDetail(topicId: string) {
+  const supabase = await readClient();
+
+  const { data: topic } = await supabase
+    .from("topics")
+    .select("id, module_id, title, learning_objective, why, order_index")
+    .eq("id", topicId)
+    .single();
+
+  if (!topic) return null;
+
+  const [{ data: repertoire }, { data: exercises }] = await Promise.all([
+    supabase
+      .from("repertoire_items")
+      .select("id, title, content_type, content_html, youtube_url, order_index")
+      .eq("topic_id", topicId)
+      .order("order_index")
+      .limit(1),
+    supabase
+      .from("exercises")
+      .select("id, title, instructions, order_index")
+      .eq("topic_id", topicId)
+      .order("order_index")
+      .limit(1),
+  ]);
+
+  const exercise = exercises?.[0] ?? null;
+
+  const { data: questions } = exercise
+    ? await supabase
+        .from("exercise_questions")
+        .select("id, question_text, order_index")
+        .eq("exercise_id", exercise.id)
+        .order("order_index")
+    : { data: [] as { id: string; question_text: string; order_index: number }[] };
+
+  return {
+    topic,
+    repertoire: repertoire?.[0] ?? null,
+    exercise,
+    questions: questions ?? [],
+  };
+}
+
+export interface DashboardUpcomingEvent {
+  id: string;
+  title: string;
+  date: string;
+  scheduleTitle: string | null;
+  scheduleStatus: string | null;
+  familyName: string | null;
+}
+
+export interface DashboardOverview {
+  totalUsers: number;
+  usersByRole: { student: number; mentor: number; admin: number };
+  totalFamilies: number;
+  totalProjects: number;
+  projectsByStatus: { active: number; paused: number; completed: number };
+  upcomingEventsCount: number;
+  submittedAnswersCount: number;
+  upcomingEvents: DashboardUpcomingEvent[];
+}
+
+/** Visão agregada da plataforma para `/admin/dashboard`. */
+export async function getDashboardOverview(): Promise<DashboardOverview> {
+  const supabase = await readClient();
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const in30DaysIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  const [
+    { data: profiles },
+    { count: totalFamilies },
+    { data: projects },
+    { count: upcomingEventsCount },
+    { count: submittedAnswersCount },
+    { data: events },
+  ] = await Promise.all([
+    supabase.from("profiles").select("role"),
+    supabase.from("families").select("id", { count: "exact", head: true }),
+    supabase.from("projects").select("status"),
+    supabase
+      .from("project_events")
+      .select("id", { count: "exact", head: true })
+      .not("date", "is", null)
+      .gte("date", todayIso)
+      .lte("date", in30DaysIso),
+    supabase
+      .from("exercise_answers")
+      .select("id", { count: "exact", head: true })
+      .not("submitted_at", "is", null),
+    supabase
+      .from("project_events")
+      .select("id, title, date, schedule_id")
+      .not("date", "is", null)
+      .gte("date", todayIso)
+      .order("date")
+      .limit(8),
+  ]);
+
+  // `project_events` → `project_schedule` → `projects` → `families`: resolvido
+  // em memória, como o restante deste arquivo faz para joins encadeados
+  // (ver `getFamilyOverview`), em vez de um select aninhado de 3 níveis.
+  const scheduleIds = [...new Set((events ?? []).map((e) => e.schedule_id))];
+
+  const { data: schedules } = scheduleIds.length
+    ? await supabase
+        .from("project_schedule")
+        .select("id, title, status, project_id")
+        .in("id", scheduleIds)
+    : { data: [] as { id: string; title: string; status: string; project_id: string }[] };
+
+  const projectIds = [...new Set((schedules ?? []).map((s) => s.project_id))];
+
+  const { data: eventProjects } = projectIds.length
+    ? await supabase.from("projects").select("id, family_id").in("id", projectIds)
+    : { data: [] as { id: string; family_id: string }[] };
+
+  const familyIds = [...new Set((eventProjects ?? []).map((p) => p.family_id))];
+
+  const { data: families } = familyIds.length
+    ? await supabase.from("families").select("id, name").in("id", familyIds)
+    : { data: [] as { id: string; name: string }[] };
+
+  const scheduleById = new Map((schedules ?? []).map((s) => [s.id, s]));
+  const familyIdByProject = new Map((eventProjects ?? []).map((p) => [p.id, p.family_id]));
+  const familyNameById = new Map((families ?? []).map((f) => [f.id, f.name]));
+
+  const usersByRole = { student: 0, mentor: 0, admin: 0 };
+  for (const p of profiles ?? []) {
+    if (p.role === "student" || p.role === "mentor" || p.role === "admin") {
+      usersByRole[p.role] += 1;
+    }
+  }
+
+  const projectsByStatus = { active: 0, paused: 0, completed: 0 };
+  for (const p of projects ?? []) {
+    if (p.status === "active" || p.status === "paused" || p.status === "completed") {
+      projectsByStatus[p.status] += 1;
+    }
+  }
+
+  return {
+    totalUsers: (profiles ?? []).length,
+    usersByRole,
+    totalFamilies: totalFamilies ?? 0,
+    totalProjects: (projects ?? []).length,
+    projectsByStatus,
+    upcomingEventsCount: upcomingEventsCount ?? 0,
+    submittedAnswersCount: submittedAnswersCount ?? 0,
+    upcomingEvents: (events ?? []).map((e) => {
+      const schedule = scheduleById.get(e.schedule_id);
+      const familyId = schedule ? familyIdByProject.get(schedule.project_id) : undefined;
+      return {
+        id: e.id,
+        title: e.title,
+        date: e.date as string,
+        scheduleTitle: schedule?.title ?? null,
+        scheduleStatus: schedule?.status ?? null,
+        familyName: familyId ? familyNameById.get(familyId) ?? null : null,
+      };
+    }),
+  };
+}

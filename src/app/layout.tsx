@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "DRUM — Plataforma de Desenvolvimento",
-  description: "Trilha de desenvolvimento profissional",
+  description: "Formação de desenvolvimento profissional",
 };
 
 export default function RootLayout({
@@ -25,9 +26,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="min-h-screen bg-background antialiased">
-        {children}
-        <Toaster position="bottom-right" />
+      <body
+        className="min-h-screen bg-background antialiased"
+        suppressHydrationWarning
+      >
+        <TooltipProvider>
+          {children}
+          <Toaster position="bottom-right" />
+        </TooltipProvider>
       </body>
     </html>
   );

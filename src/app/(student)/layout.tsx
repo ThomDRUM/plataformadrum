@@ -1,33 +1,27 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionProfile } from "@/lib/auth/session";
 import { StudentSidebar } from "@/components/layout/student-sidebar";
+import { StudentHeader } from "@/components/layout/student-header";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export default async function StudentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role, trail_id")
-    .eq("id", user.id)
-    .single();
+  const profile = await getSessionProfile();
 
   if (!profile || profile.role !== "student") redirect("/login");
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <StudentSidebar userName={profile.full_name} />
-      <main className="flex-1 ml-56 min-h-screen">
-        <div className="px-10 py-10">
+    <SidebarProvider>
+      <StudentSidebar userName={profile.fullName} />
+      <SidebarInset>
+        <StudentHeader />
+        <div className="min-w-0 px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
           {children}
         </div>
-      </main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

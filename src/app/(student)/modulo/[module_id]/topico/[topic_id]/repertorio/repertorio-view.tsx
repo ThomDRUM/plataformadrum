@@ -21,7 +21,13 @@ export function RepertorioView({ userId, topicId, item, hasExercise, nextHref }:
       item={item}
       viewed={false}
       hasExercise={hasExercise}
-      onAdvance={() => router.push(nextHref)}
+      onAdvance={() => {
+        // O progresso acabou de ser gravado: invalida o Router Cache antes de
+        // navegar, senão a próxima tela pode vir de uma cópia em cache (até 60s,
+        // ver staleTimes no next.config.ts) e mostrar o status desatualizado.
+        router.refresh();
+        router.push(nextHref);
+      }}
     />
   );
 }

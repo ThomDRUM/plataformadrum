@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionProfile } from "@/lib/auth/session";
 import { getTopicNavContext } from "@/lib/student/topic-context";
 import { LearnSidebar } from "@/components/topic/learn-sidebar";
 import { ModuleSelector } from "@/components/topic/module-selector";
@@ -12,19 +13,11 @@ export default async function TopicRepertoirePage({
 }) {
   const { module_id, topic_id } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const profile = await getSessionProfile();
+  if (!profile?.trailId) redirect("/");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("trail_id")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile?.trail_id) redirect("/");
-
-  const { modules, mod, topics, hasExercise, topicHasExercise, nextTopicHref, getTopicStatus } =
-    await getTopicNavContext(supabase, user.id, profile.trail_id, module_id, topic_id);
+  const { modules, mod, topics, hasExercise, topicHasExercise, nextStepHref, getTopicStatus } =
+    await getTopicNavContext(supabase, profile.id, profile.trailId, module_id, topic_id, "repertorio");
 
   const { data: repertoireItems } = await supabase
     .from("repertoire_items")
@@ -35,12 +28,8 @@ export default async function TopicRepertoirePage({
 
   const repertoireItem = repertoireItems?.[0] ?? null;
 
-  const nextHref = topicHasExercise
-    ? `/modulo/${module_id}/topico/${topic_id}/exercicio`
-    : nextTopicHref;
-
   return (
-    <div className="-mx-10 -my-10 flex min-h-screen">
+    <div className="flex min-w-0 flex-col gap-6 xl:flex-row xl:gap-10">
       <LearnSidebar
         moduleTitle={mod.title}
         moduleNumber={mod.orderIndex}
@@ -56,20 +45,20 @@ export default async function TopicRepertoirePage({
         moduleId={module_id}
       />
 
-      <main className="flex-1 ml-64 px-10 py-10 max-w-4xl">
+      <div className="w-full min-w-0 max-w-4xl flex-1">
         <ModuleSelector
           modules={modules.map((m) => ({ id: m.id, title: m.title, orderIndex: m.orderIndex, unlocked: m.unlocked }))}
           currentModuleId={module_id}
         />
 
         <RepertorioView
-          userId={user.id}
+          userId={profile.id}
           topicId={topic_id}
           item={repertoireItem}
           hasExercise={topicHasExercise}
-          nextHref={nextHref}
+          nextHref={nextStepHref}
         />
-      </main>
+      </div>
     </div>
   );
 }

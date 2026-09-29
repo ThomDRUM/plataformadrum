@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionProfile } from "@/lib/auth/session";
 import { getStudentAccessData } from "@/lib/student/access";
 
 export default async function ModulePage({
@@ -9,21 +10,13 @@ export default async function ModulePage({
 }) {
   const { module_id } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("trail_id")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile?.trail_id) redirect("/");
+  const profile = await getSessionProfile();
+  if (!profile?.trailId) redirect("/");
 
   const { modules, topicsByModule } = await getStudentAccessData(
     supabase,
-    user.id,
-    profile.trail_id
+    profile.id,
+    profile.trailId
   );
 
   const mod = modules.find((m) => m.id === module_id);

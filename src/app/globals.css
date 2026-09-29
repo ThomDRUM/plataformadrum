@@ -38,6 +38,17 @@
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
+  --color-invert-foreground: var(--invert-foreground);
+  --color-invert: var(--invert);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning: var(--warning);
+  --color-info-foreground: var(--info-foreground);
+  --color-info: var(--info);
+  --color-success-foreground: var(--success-foreground);
+  --color-success: var(--success);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-focus-foreground: var(--focus-foreground);
+  --color-focus: var(--focus);
 }
 
 :root {
@@ -85,6 +96,17 @@
   --status-in-progress: oklch(0.72 0.17 55);
   --status-not-started: oklch(0.65 0 0);
   --status-locked: oklch(0.78 0 0);
+  --destructive-foreground: var(--color-red-800);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-900);
+  --info: var(--color-violet-500);
+  --info-foreground: var(--color-violet-900);
+  --warning: var(--color-yellow-500);
+  --warning-foreground: var(--color-yellow-900);
+  --invert: var(--color-zinc-900);
+  --invert-foreground: var(--color-zinc-50);
+  --focus: var(--color-blue-500);
+  --focus-foreground: var(--color-blue-900);
 }
 
 @layer base {
@@ -112,7 +134,24 @@
 .tiptap-content ol { @apply list-decimal pl-5 mb-3 space-y-1; }
 .tiptap-content blockquote { @apply border-l-2 border-border pl-4 italic text-muted-foreground; }
 .tiptap-content strong { @apply font-semibold; }
+.tiptap-content em { @apply italic; }
+.tiptap-content s { @apply line-through; }
+.tiptap-content u { @apply underline underline-offset-2; }
 .tiptap-content a { @apply text-primary underline underline-offset-2; }
+.tiptap-content hr { @apply my-6 border-t border-border; }
+.tiptap-content code { @apply rounded bg-muted px-1 py-0.5 text-[0.9em]; }
+.tiptap-content pre { @apply mb-3 overflow-x-auto rounded-lg bg-muted p-3 text-[0.9em]; }
+.tiptap-content pre code { @apply bg-transparent p-0; }
+
+/* Mídia — imagens e vídeo entram pelo editor de repertório. */
+.tiptap-content img { @apply my-4 h-auto max-w-full rounded-lg border border-border; }
+.tiptap-content img.ProseMirror-selectednode { @apply ring-2 ring-ring; }
+
+/* O nó de vídeo do TipTap é um <div data-youtube-video> em volta do iframe. */
+.tiptap-content div[data-youtube-video] { @apply my-4; }
+.tiptap-content div[data-youtube-video] iframe {
+  @apply aspect-video h-auto w-full rounded-lg border border-border bg-muted;
+}
 
 .ProseMirror {
   @apply outline-none min-h-[120px];
@@ -120,4 +159,18 @@
 .ProseMirror p.is-editor-empty:first-child::before {
   @apply text-muted-foreground pointer-events-none float-left h-0;
   content: attr(data-placeholder);
+}
+
+.dark {
+  --destructive-foreground: var(--color-red-600);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-600);
+  --info: var(--color-violet-500);
+  --info-foreground: var(--color-violet-600);
+  --warning: var(--color-yellow-500);
+  --warning-foreground: var(--color-yellow-600);
+  --invert: var(--color-zinc-700);
+  --invert-foreground: var(--color-zinc-50);
+  --focus: var(--color-blue-500);
+  --focus-foreground: var(--color-blue-600);
 }
